@@ -79,13 +79,15 @@ import org.apache.spark.util._
   * <br><br>  除了切分stage之外，DAGScheduler还会依据当前的cache状态尽可能的locations执行task，传递这些状态
   * 低层的TaskScheduler。DAGScheduler还会处理shuffle数据文件丢失的错误，这种情况丢失数据的stage需要再次提交，
   * 如果一个stage的错误不是由于文件丢失的话将会由TaskScheduler处理，TaskScheduler将会在取消该整个stage之前
-  * 重试少数几次每一个task<br><br>
+  * 重试少数几次每一个task<br>
   *
-  * When looking through this code, there are several key concepts:
-  *
+  * When looking through this code, there are several key concepts:<br>
+  * 我们浏览如下代码，有一个关键概念：<br>
   * - Jobs (represented by [[ActiveJob]]) are the top-level work items submitted to the scheduler.
   * For example, when the user calls an action, like count(), a job will be submitted through
   * submitJob. Each Job may require the execution of multiple stages to build intermediate data.
+  * <br>	 Jobs是顶层的单元提交给scheduler，例如：当用户调用action(count())，一个job将会使用submitJob提交
+  * 每一个Job可能需要多个stages构建中间数据<br><br>
   *
   * - Stages ([[Stage]]) are sets of tasks that compute intermediate results in jobs, where each
   * task computes the same function on partitions of the same RDD. Stages are separated at shuffle
@@ -93,18 +95,30 @@ import org.apache.spark.util._
   * fetch outputs). There are two types of stages: [[ResultStage]], for the final stage that
   * executes an action, and [[ShuffleMapStage]], which writes map output files for a shuffle.
   * Stages are often shared across multiple jobs, if these jobs reuse the same RDDs.
+  * <br>
+  * Stage是Task的集合用来在Job中计算中间数据，每一个task在同一个RDD的多个分区上执行相同的计算逻辑
+  * stage是根据shuffle界限划分的，这将引入一个界限(后面的stage必须等待前面的stage执行完毕去拉取数据)。
+  * 这里有两种类型的Stage：ResultStage是执行Action的最终stage，ShuffleMapStage是map为shuffle写输出文件的stage
+  * Stage通常可以被多个job共享，如果这些Job都是在相同的RDD上执行计算
+  * <br>
   *
   * - Tasks are individual units of work, each sent to one machine.
+  * <br>Task是work的独有的单元，每一个Task都会发送到一台机器上<br>
   *
   * - Cache tracking: the DAGScheduler figures out which RDDs are cached to avoid recomputing them
   * and likewise remembers which shuffle map stages have already produced output files to avoid
   * redoing the map side of a shuffle.
+  * <br>
+  * 缓存跟踪：DAGScheduler会指出哪些RDD被缓存，避免重新计算和计算哪些shuffle stage输出了文件，避免从新执行shuffle输出<br>
   *
   * - Preferred locations: the DAGScheduler also computes where to run each task in a stage based
   * on the preferred locations of its underlying RDDs, or the location of cached or shuffle data.
-  *
+  * <br>
+  * 尽可能本地化：DAGScheduler将会依据RDD所有的位置偏好计算在哪里执行每一个stage中的task，或者在哪里缓存或者输出shuffle data
+  * <br><br>
   * - Cleanup: all data structures are cleared when the running jobs that depend on them finish,
   * to prevent memory leaks in a long-running application.
+  * <br>清除工作：当job依赖的数据使用完毕之后将会清除这些数据，避免app长期运行导致内存泄露<br><br>
   *
   * To recover from failures, the same stage might need to run multiple times, which are called
   * "attempts". If the TaskScheduler reports that a task failed because a map output file from a
@@ -115,12 +129,17 @@ import org.apache.spark.util._
   * Stage objects for old (finished) stages where we previously cleaned up the Stage object. Since
   * tasks from the old attempt of a stage could still be running, care must be taken to map any
   * events received in the correct Stage object.
+  * <br><br>  为了失败恢复，相同的stage可能需要执行多次，这称为"attempts"。如果TaskScheduler汇报一个task由于上一个map输出
+  文件丢失的话，DAGScheduler将会重新提交丢失的stage，这个可以通过完成的FetchFailed或ExecutorLost时间侦查到。
+  DAGScheduler会等一小段时间去检查是否其他节点也存在这种情况或者是Task失败，然后重新提交TaskSet给丢失的stage计算
+  丢失的Task。在这个过程中，我们必须从新创建Stage Object，因为之前的Stage Object对象已经被清除。失败的stage有可能由于attempt
+  还会执行，必须在正确的Stage Object中考虑事件(翻译的不是很得体)<br><br>
   *
   * Here's a checklist to use when making or reviewing changes to this class:
   *
   * - All data structures should be cleared when the jobs involving them end to avoid indefinite
-  * accumulation of state in long-running programs.
-  *
+  * accumulation of state in long-running programs.<br>
+  *当job执行完毕之后该job的所有的数据必须清除掉，避免无限的积累<br>
   * - When adding a new data structure, update `DAGSchedulerSuite.assertDataStructuresEmpty` to
   * include the new structure. This will help to catch memory leaks.
   */
