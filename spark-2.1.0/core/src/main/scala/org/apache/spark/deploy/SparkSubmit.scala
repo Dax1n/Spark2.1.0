@@ -120,6 +120,7 @@ object SparkSubmit {
     * @param args
     */
   def main(args: Array[String]): Unit = {
+
     val appArgs = new SparkSubmitArguments(args)
     if (appArgs.verbose) {
       // scalastyle:off println
@@ -160,8 +161,6 @@ object SparkSubmit {
    * main class.<br><br>运行分为两步骤：
     *  <br>1：设置合适的classpath、系统属性、应用参数、集群管理者和部署模式
     *  <br>2：使用1中准备的环境调用main方法运行启用
-    *
-    *
     *
    */
   @tailrec
