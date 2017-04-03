@@ -115,6 +115,10 @@ object SparkSubmit {
   }
   // scalastyle:on println
 
+  /**
+    * 提交作业
+    * @param args
+    */
   def main(args: Array[String]): Unit = {
     val appArgs = new SparkSubmitArguments(args)
     if (appArgs.verbose) {
@@ -147,13 +151,18 @@ object SparkSubmit {
   }
 
   /**
-   * Submit the application using the provided parameters.
+   * Submit the application using the provided parameters.<br>使用命令行提供的参数提交应用<br><br>
    *
    * This runs in two steps. First, we prepare the launch environment by setting up
    * the appropriate classpath, system properties, and application arguments for
    * running the child main class based on the cluster manager and the deploy mode.
    * Second, we use this launch environment to invoke the main method of the child
-   * main class.
+   * main class.<br><br>运行分为两步骤：
+    *  <br>1：设置合适的classpath、系统属性、应用参数、集群管理者和部署模式
+    *  <br>2：使用1中准备的环境调用main方法运行启用
+    *
+    *
+    *
    */
   @tailrec
   private def submit(args: SparkSubmitArguments): Unit = {

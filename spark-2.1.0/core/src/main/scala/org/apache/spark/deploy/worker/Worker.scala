@@ -40,17 +40,25 @@ import org.apache.spark.metrics.MetricsSystem
 import org.apache.spark.rpc._
 import org.apache.spark.util.{ThreadUtils, Utils}
 
+/**
+  *
+  * @param rpcEnv worker所在节点创建的RpcEnv环境
+  * @param webUiPort  Worker的webui端口
+  * @param cores
+  * @param memory
+  * @param masterRpcAddresses
+  * @param endpointName
+  * @param workDirPath
+  * @param conf
+  * @param securityMgr
+  */
 private[deploy] class Worker(
-                              override val rpcEnv: RpcEnv,
-                              webUiPort: Int,
-                              cores: Int,
-                              memory: Int,
-                              masterRpcAddresses: Array[RpcAddress],
-                              endpointName: String,
-                              workDirPath: String = null,
-                              val conf: SparkConf,
-                              val securityMgr: SecurityManager)
+                              override val rpcEnv: RpcEnv, webUiPort: Int,
+                              cores: Int, memory: Int, masterRpcAddresses: Array[RpcAddress],
+                              endpointName: String, workDirPath: String = null,
+                              val conf: SparkConf, val securityMgr: SecurityManager)
   extends ThreadSafeRpcEndpoint with Logging {
+
 
   private val host = rpcEnv.address.host
   private val port = rpcEnv.address.port
@@ -59,15 +67,17 @@ private[deploy] class Worker(
   assert(port > 0)
 
   /**
-    * A scheduled executor used to send messages at the specified time.
+    * A scheduled executor used to send messages at the specified time.<br><br>
+    * worker发送消息使用的线程池
     */
   private val forwordMessageScheduler =
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("worker-forward-message-scheduler")
 
-  // A separated thread to clean up the workDir. Used to provide the implicit parameter of `Future`
-  // methods.
-  private val cleanupThreadExecutor = ExecutionContext.fromExecutorService(
-    ThreadUtils.newDaemonSingleThreadExecutor("worker-cleanup-thread"))
+
+  /**
+    *  A separated thread to clean up the workDir. Used to provide the implicit parameter of `Future`methods.
+    */
+  private val cleanupThreadExecutor = ExecutionContext.fromExecutorService(ThreadUtils.newDaemonSingleThreadExecutor("worker-cleanup-thread"))
 
   // For worker and executor IDs
   private def createDateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US)
@@ -127,10 +137,10 @@ private[deploy] class Worker(
 
   val retainedExecutors = conf.getInt("spark.worker.ui.retainedExecutors",
     WorkerWebUI.DEFAULT_RETAINED_EXECUTORS)
-  val retainedDrivers = conf.getInt("spark.worker.ui.retainedDrivers",
-    WorkerWebUI.DEFAULT_RETAINED_DRIVERS)
+  val retainedDrivers = conf.getInt("spark.worker.ui.retainedDrivers",WorkerWebUI.DEFAULT_RETAINED_DRIVERS)
 
   // The shuffle service is not actually started unless configured.
+  //spark.shuffle.service.enabled=true的话启动，在动态资源分配中使用
   private val shuffleService = new ExternalShuffleService(conf, securityMgr)
 
   private val publicAddress = {
@@ -156,16 +166,26 @@ private[deploy] class Worker(
   // A thread pool for registering with masters. Because registering with a master is a blocking
   // action, this thread pool must be able to create "masterRpcAddresses.size" threads at the same
   // time so that we can register with all masters.
-  private val registerMasterThreadPool = ThreadUtils.newDaemonCachedThreadPool(
-    "worker-register-master-threadpool",
+  /**
+    * 注册master的线程池，由于注册master是阻塞的，所以需要创建master个数的线程数目，同时去注册所有的master
+    */
+  private val registerMasterThreadPool = ThreadUtils.newDaemonCachedThreadPool("worker-register-master-threadpool",
     masterRpcAddresses.length // Make sure we can register with all masters at the same time
   )
 
   var coresUsed = 0
   var memoryUsed = 0
 
+  /**
+    * 该workr所有的cores数目
+    * @return 当前剩余的核心数(cores - coresUsed)
+    */
   def coresFree: Int = cores - coresUsed
 
+  /**
+    * 该workr所有的内存数目
+    * @return  memory - memoryUsed
+    */
   def memoryFree: Int = memory - memoryUsed
 
   private def createWorkDir() {
@@ -565,7 +585,7 @@ private[deploy] class Worker(
     case driverStateChanged@DriverStateChanged(driverId, state, exception) =>
       handleDriverStateChanged(driverStateChanged)
 
-    case ReregisterWithMaster =>
+    case ReregisterWithMaster => //
       reregisterWithMaster()
 
     case ApplicationFinished(id) =>
@@ -709,7 +729,9 @@ private[deploy] class Worker(
       maybeCleanupApplication(appId)
     }
   }
-}
+}//class Worker End
+
+
 
 private[deploy] object Worker extends Logging {
   /**
@@ -724,7 +746,7 @@ private[deploy] object Worker extends Logging {
   def main(argStrings: Array[String]) {
     Utils.initDaemon(log)
     val conf = new SparkConf
-    val args = new WorkerArguments(argStrings, conf)
+    val args = new WorkerArguments(argStrings, conf)//masterUrl是在java -cp启动worker时候传入的
     val rpcEnv = startRpcEnvAndEndpoint(args.host, args.port, args.webUiPort, args.cores, args.memory, args.masters, args.workDir, conf = conf)
     rpcEnv.awaitTermination()
   }

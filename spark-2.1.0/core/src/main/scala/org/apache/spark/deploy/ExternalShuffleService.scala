@@ -38,9 +38,9 @@ import org.apache.spark.util.{ShutdownHookManager, Utils}
  * off or killed.
  *
  * Optionally requires SASL authentication in order to read. See [[SecurityManager]].
+  *
  */
-private[deploy]
-class ExternalShuffleService(sparkConf: SparkConf, securityManager: SecurityManager)
+private[deploy] class ExternalShuffleService(sparkConf: SparkConf, securityManager: SecurityManager)
   extends Logging {
   protected val masterMetricsSystem =
     MetricsSystem.createMetricsSystem("shuffleService", sparkConf, securityManager)
@@ -49,8 +49,7 @@ class ExternalShuffleService(sparkConf: SparkConf, securityManager: SecurityMana
   private val port = sparkConf.getInt("spark.shuffle.service.port", 7337)
   private val useSasl: Boolean = securityManager.isAuthenticationEnabled()
 
-  private val transportConf =
-    SparkTransportConf.fromSparkConf(sparkConf, "shuffle", numUsableCores = 0)
+  private val transportConf = SparkTransportConf.fromSparkConf(sparkConf, "shuffle", numUsableCores = 0)
   private val blockHandler = newShuffleBlockHandler(transportConf)
   private val transportContext: TransportContext =
     new TransportContext(transportConf, blockHandler, true)

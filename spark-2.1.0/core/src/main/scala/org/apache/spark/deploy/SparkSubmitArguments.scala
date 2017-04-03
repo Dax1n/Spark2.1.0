@@ -223,7 +223,10 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
       name = Utils.stripDirectory(primaryResource)
     }
 
-    // Action should be SUBMIT unless otherwise specified
+
+    /**
+      * Action should be SUBMIT unless otherwise specified<br><br>如果没有指定的话，默认就是SUBMIT
+      */
     action = Option(action).getOrElse(SUBMIT)
   }
 

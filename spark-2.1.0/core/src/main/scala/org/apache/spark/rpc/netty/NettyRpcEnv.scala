@@ -128,6 +128,7 @@ private[netty] class NettyRpcEnv(
   /**
     * eg:当master注册时候，name=master，endpoint=Master的一个实例，worker同理。
     * <br><br>
+    *
     * @param name
     * @param endpoint
     * @return
@@ -271,6 +272,7 @@ private[netty] class NettyRpcEnv(
 
   /**
     * 是在dispather中根据RpcEndpoint获取的RpcEndpointRef
+    *
     * @param endpoint
     * @return
     */
@@ -516,6 +518,15 @@ private[netty] class NettyRpcEndpointRef(
 
   override def name: String = _name
 
+  //Send a message to the corresponding ) and return a Future to receive the reply within the specified timeout.
+  // This method only sends the message once and never retries.
+  /**
+    * 将消息发送给对应的EndPoint，在EndPoint的reciveAndReply方法中执行，这个方法只发送一次，失败不会重试
+    * @param message
+    * @param timeout
+    * @tparam T 回应消息的类型
+    * @return
+    */
   override def ask[T: ClassTag](message: Any, timeout: RpcTimeout): Future[T] = {
     nettyEnv.ask(RequestMessage(nettyEnv.address, this, message), timeout)
   }

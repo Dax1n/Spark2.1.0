@@ -49,6 +49,11 @@ private[spark] object RpcEndpointAddress {
     new RpcEndpointAddress(host, port, name)
   }
 
+  /**
+    *
+    * @param sparkUrl
+    * @return
+    */
   def apply(sparkUrl: String): RpcEndpointAddress = {
     try {
       val uri = new java.net.URI(sparkUrl)

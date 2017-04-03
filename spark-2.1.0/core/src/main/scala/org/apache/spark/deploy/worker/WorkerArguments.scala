@@ -26,6 +26,7 @@ import org.apache.spark.SparkConf
 
 /**
  * Command-line parser for the worker.
+  * conf 是在worker的main方法中创建的
  */
 private[worker] class WorkerArguments(args: Array[String], conf: SparkConf) {
   var host = Utils.localHostName()

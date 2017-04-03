@@ -97,8 +97,8 @@ private[spark] object ThreadUtils {
   def newDaemonSingleThreadScheduledExecutor(threadName: String): ScheduledExecutorService = {
     val threadFactory = new ThreadFactoryBuilder().setDaemon(true).setNameFormat(threadName).build()
     val executor = new ScheduledThreadPoolExecutor(1, threadFactory)
-    // By default, a cancelled task is not automatically removed from the work queue until its delay
-    // elapses. We have to enable it manually.
+    // By default, a cancelled task is not automatically removed from the work queue until its delay elapses. We have to enable it manually.
+    //默认，取消任务并不会立即取消，而是在延迟过后才取消(这里的延迟是指我们提交任务时候的延迟)，我们设置true立即取消
     executor.setRemoveOnCancelPolicy(true)
     executor
   }

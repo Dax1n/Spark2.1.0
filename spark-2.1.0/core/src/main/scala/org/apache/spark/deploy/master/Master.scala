@@ -821,7 +821,7 @@ private[deploy] class Master(
   }
 
   /**
-    * 注册worker
+    * 注册worker，注册成功的话将worker放到workers集合中
     *
     * @param worker
     * @return
