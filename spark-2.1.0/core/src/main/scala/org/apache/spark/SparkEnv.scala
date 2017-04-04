@@ -51,7 +51,7 @@ import org.apache.spark.util.{RpcUtils, Utils}
  *<br>该对象保存一个spark实例运行时的环境，包括序列化器，RpcEnv，块管理器和map输出跟踪器等<br>
  * NOTE: This is not intended for external use. This is exposed for Shark and may be made private
  *       in a future release.
-  *
+  *<br><br><br><br>注意：这个不是RpcEnv，千万不要混淆
   *
  */
 @DeveloperApi
@@ -139,7 +139,13 @@ class SparkEnv (
 object SparkEnv extends Logging {
   @volatile private var env: SparkEnv = _
 
+  /**
+    *  driverSystemName = "sparkDriver"
+    */
   private[spark] val driverSystemName = "sparkDriver"
+  /**
+    * executorSystemName = "sparkExecutor"
+    */
   private[spark] val executorSystemName = "sparkExecutor"
 
   def set(e: SparkEnv) {
@@ -155,6 +161,8 @@ object SparkEnv extends Logging {
 
   /**
    * Create a SparkEnv for the driver.
+    * 在SparkContext运行作业时候会调用这个函数
+    *
    */
   private[spark] def createDriverEnv(
       conf: SparkConf,
@@ -162,17 +170,18 @@ object SparkEnv extends Logging {
       listenerBus: LiveListenerBus,
       numCores: Int,
       mockOutputCommitCoordinator: Option[OutputCommitCoordinator] = None): SparkEnv = {
-    assert(conf.contains(DRIVER_HOST_ADDRESS),
-      s"${DRIVER_HOST_ADDRESS.key} is not set on the driver!")
+    assert(conf.contains(DRIVER_HOST_ADDRESS), s"${DRIVER_HOST_ADDRESS.key} is not set on the driver!")
     assert(conf.contains("spark.driver.port"), "spark.driver.port is not set on the driver!")
     val bindAddress = conf.get(DRIVER_BIND_ADDRESS)
     val advertiseAddress = conf.get(DRIVER_HOST_ADDRESS)
     val port = conf.get("spark.driver.port").toInt
+    //判断是否需要io数据加密
     val ioEncryptionKey = if (conf.get(IO_ENCRYPTION_ENABLED)) {
       Some(CryptoStreamUtils.createKey(conf))
     } else {
       None
     }
+
     create(
       conf,
       SparkContext.DRIVER_IDENTIFIER,
@@ -215,6 +224,7 @@ object SparkEnv extends Logging {
 
   /**
    * Helper method to create a SparkEnv for a driver or an executor.
+    * 工具方法，为driver或者executor创建SparkEnv
    */
   private def create(
       conf: SparkConf,
@@ -244,8 +254,10 @@ object SparkEnv extends Logging {
     }
 
     val systemName = if (isDriver) driverSystemName else executorSystemName
-    val rpcEnv = RpcEnv.create(systemName, bindAddress, advertiseAddress, port, conf,
-      securityManager, clientMode = !isDriver)
+    /**
+      * 创建RpcEnv环境
+      */
+    val rpcEnv = RpcEnv.create(systemName, bindAddress, advertiseAddress, port, conf,securityManager, clientMode = !isDriver)
 
     // Figure out which port RpcEnv actually bound to in case the original port is 0 or occupied.
     // In the non-driver case, the RPC env's address may be null since it may not be listening

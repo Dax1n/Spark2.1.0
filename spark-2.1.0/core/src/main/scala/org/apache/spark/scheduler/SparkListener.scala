@@ -152,7 +152,7 @@ private[spark] trait SparkHistoryListenerFactory {
 /**
  * Interface for listening to events from the Spark scheduler. Most applications should probably
  * extend SparkListener or SparkFirehoseListener directly, rather than implementing this class.
- *
+ *<br>一个借口可以监听Spark Scheduler的事件，大多数应用应该能直接继承SparkListener或者SparkFirehoseListener就够了而不是实现这个接口<br>
  * Note that this is an internal interface which might change in different Spark releases.
  */
 private[spark] trait SparkListenerInterface {

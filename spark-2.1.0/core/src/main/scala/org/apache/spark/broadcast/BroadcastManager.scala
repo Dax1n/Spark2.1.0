@@ -50,6 +50,9 @@ private[spark] class BroadcastManager(
     broadcastFactory.stop()
   }
 
+  /**
+    * 广播ID
+    */
   private val nextBroadcastId = new AtomicLong(0)
 
   def newBroadcast[T: ClassTag](value_ : T, isLocal: Boolean): Broadcast[T] = {

@@ -223,5 +223,8 @@ private[spark] class HeartbeatReceiver(sc: SparkContext, clock: Clock)
 
 
 private[spark] object HeartbeatReceiver {
+  /**
+    * ENDPOINT_NAME = "HeartbeatReceiver"
+    */
   val ENDPOINT_NAME = "HeartbeatReceiver"
 }

@@ -452,7 +452,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
 
   /**
    * Request an additional number of executors from the cluster manager.
-   * @return whether the request is acknowledged.
+   * @return whether the request is acknowledged. 返回请求是否可以被接受
    */
   final override def requestExecutors(numAdditionalExecutors: Int): Boolean = {
     if (numAdditionalExecutors < 0) {
@@ -608,5 +608,8 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
 }
 
 private[spark] object CoarseGrainedSchedulerBackend {
+  /**
+    * ENDPOINT_NAME = "CoarseGrainedScheduler"
+    */
   val ENDPOINT_NAME = "CoarseGrainedScheduler"
 }

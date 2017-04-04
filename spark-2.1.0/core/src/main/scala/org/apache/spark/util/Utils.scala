@@ -2446,6 +2446,7 @@ private[spark] object Utils extends Logging {
 
   /**
    *
+    * 判断是否是本地模式
    * @return whether it is local mode
    */
   def isLocalMaster(conf: SparkConf): Boolean = {

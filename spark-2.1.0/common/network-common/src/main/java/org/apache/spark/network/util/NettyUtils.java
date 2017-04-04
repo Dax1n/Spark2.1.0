@@ -35,6 +35,9 @@ import io.netty.util.internal.PlatformDependent;
 
 /**
  * Utilities for creating various Netty constructs based on whether we're using EPOLL or NIO.
+ *
+ * Netty工具方法
+ *
  */
 public class NettyUtils {
   /** Creates a new ThreadFactory which prefixes each thread with the given name. */

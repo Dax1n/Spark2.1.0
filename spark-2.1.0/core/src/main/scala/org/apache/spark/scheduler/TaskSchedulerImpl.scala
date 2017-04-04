@@ -152,6 +152,10 @@ private[spark] class TaskSchedulerImpl(
 
   def newTaskId(): Long = nextTaskId.getAndIncrement()
 
+  /**
+    *
+    *方法体内判断是否推测执行
+    */
   override def start() {
     backend.start()
 

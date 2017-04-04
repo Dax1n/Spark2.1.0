@@ -35,7 +35,7 @@ import org.apache.spark.util.RpcUtils
 private[spark] object RpcEnv {
 
   /**
-    *
+    *在Master、Worker启动时候会调用这个函数
     * @param name
     * @param host
     * @param port
