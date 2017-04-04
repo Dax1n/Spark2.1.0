@@ -109,7 +109,7 @@ import org.apache.spark.util._
   * and likewise remembers which shuffle map stages have already produced output files to avoid
   * redoing the map side of a shuffle.
   * <br>
-  * 缓存跟踪：DAGScheduler会指出哪些RDD被缓存，避免重新计算和计算哪些shuffle stage输出了文件，避免从新执行shuffle输出<br>
+  * 缓存跟踪：DAGScheduler会解决哪些RDD被缓存，避免重新计算和 避免执行shuffle输出的Satge再次执行<br>
   *
   * - Preferred locations: the DAGScheduler also computes where to run each task in a stage based
   * on the preferred locations of its underlying RDDs, or the location of cached or shuffle data.
