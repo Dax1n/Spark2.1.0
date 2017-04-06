@@ -560,6 +560,15 @@ class SparkContext(config: SparkConf) extends Logging {
     _heartbeatReceiver.ask[Boolean](TaskSchedulerIsSet)
 
     // start TaskScheduler after taskScheduler sets DAGScheduler reference in DAGScheduler's constructor
+    /**
+      * 很重要：SparkContext是Spark提交任务到集群的入口
+      * 我们看一下SparkContext的主构造器
+      * 1.调用createSparkEnv方法创建SparkEnv
+      * 2.创建TaskScheduler -> 根据提交任务的URL进行匹配 -> TaskSchedulerImpl -> SparkDeploySchedulerBackend(里面有两个Actor)
+      * 3.创建DAGScheduler
+      * 4.taskScheduler.start()
+      */
+
     _taskScheduler.start()
 
     _applicationId = _taskScheduler.applicationId()
@@ -847,6 +856,8 @@ class SparkContext(config: SparkConf) extends Logging {
   /** Distribute a local Scala collection to form an RDD.
     *
     * This method is identical to `parallelize`.
+    *
+    * 底层也是调用parallelize方法实现的
     */
   def makeRDD[T: ClassTag](
                             seq: Seq[T],
@@ -1556,8 +1567,6 @@ class SparkContext(config: SparkConf) extends Logging {
     * Update the cluster manager on our scheduling needs. Three bits of information are included
     * to help it make decisions.
     *
-    *
-    *
     * @param numExecutors         The total number of executors we'd like to have. The cluster manager
     *                             shouldn't kill any running executor to reach this number, but,
     *                             if all existing executors were to die, this is the number of executors
@@ -1571,10 +1580,10 @@ class SparkContext(config: SparkConf) extends Logging {
     * @return whether the request is acknowledged by the cluster manager.
     *
     *
-    *    requestTotalExecutors方法在集群管理器上更新调度的需求。包含三种信息用来做决定。
+    *         requestTotalExecutors方法在集群管理器上更新调度的需求。包含三种信息用来做决定。
     *
     *         第一，numExecutors， 我们想要的总的执行器个数。 集群管理器不能杀死任何运行的执行器来达到这个数量，但是，如果所有的执行器都死亡的话，
-    *                         这是我们想被分配的执行器数量。
+    *         这是我们想被分配的执行器数量。
     *
     *         第二，localityAwareTasks. 所有的活动的阶段中，有本地化优先的任务的数量。包含正在运行的，等待的和完成的任务。
     *
@@ -1598,7 +1607,7 @@ class SparkContext(config: SparkConf) extends Logging {
   /**
     * :: DeveloperApi ::
     * Request an additional number of executors from the cluster manager.
-    *<br>是否可以完成numAdditionalExecutors个Executor的请求<br>
+    * <br>是否可以完成numAdditionalExecutors个Executor的请求<br>
     *
     * @return whether the request is received.
     */
@@ -1741,6 +1750,7 @@ class SparkContext(config: SparkConf) extends Logging {
 
   /**
     * Return current scheduling mode
+    * FAIR, FIFO, NONE
     */
   def getSchedulingMode: SchedulingMode.SchedulingMode = {
     assertNotStopped()
@@ -1785,7 +1795,7 @@ class SparkContext(config: SparkConf) extends Logging {
     } else {
       var key = ""
       if (path.contains("\\")) {
-        // For local paths with backslashes on Windows, URI throws an exception
+        // For local paths with backslashes(反斜杠; 反斜线) on Windows, URI throws an exception
         key = env.rpcEnv.fileServer.addJar(new File(path))
       } else {
         val uri = new URI(path)
@@ -1964,15 +1974,24 @@ class SparkContext(config: SparkConf) extends Logging {
     )
   }
 
+
   /**
+    *
     * Run a function on a given set of partitions in an RDD and pass the results to the given
     * handler function. This is the main entry point for all actions in Spark.
+    * <br><br>在给定的RDD分区集合上执行计算逻辑之后将结果返回给handler处理函数
+    * <br><br>
+    * 重点：runJob是在Spark中所有Action执行的入口
+    *
+    * @param rdd
+    * @param func
+    * @param partitions
+    * @param resultHandler
+    * @tparam T
+    * @tparam U
     */
-  def runJob[T, U: ClassTag](
-                              rdd: RDD[T],
-                              func: (TaskContext, Iterator[T]) => U,
-                              partitions: Seq[Int],
-                              resultHandler: (Int, U) => Unit): Unit = {
+  def runJob[T, U: ClassTag](rdd: RDD[T], func: (TaskContext, Iterator[T]) => U,
+                             partitions: Seq[Int], resultHandler: (Int, U) => Unit): Unit = {
     if (stopped.get()) {
       throw new IllegalStateException("SparkContext has been shutdown")
     }
@@ -1982,8 +2001,7 @@ class SparkContext(config: SparkConf) extends Logging {
     if (conf.getBoolean("spark.logLineage", false)) {
       logInfo("RDD's recursive dependencies:\n" + rdd.toDebugString)
     }
-
-    //TODO 真正触发Job执行
+    //TODO 真正触发Job执行,SparkContext的runJob->dagScheduler的runJob
     //TODO 重点，传说中DAGScheduler终于出现了，用于切分成Stage！！！ 然后在转成TaskSet给TaskScheduler再提交给Exceutor
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, resultHandler, localProperties.get)
     progressBar.foreach(_.finishAll())
@@ -2051,7 +2069,7 @@ class SparkContext(config: SparkConf) extends Logging {
 
   /**
     * :: DeveloperApi ::
-    * Run a job that can return approximate results.
+    * Run a job that can return approximate(近似) results.
     */
   @DeveloperApi
   def runApproximateJob[T, U, R](
@@ -2073,6 +2091,8 @@ class SparkContext(config: SparkConf) extends Logging {
 
   /**
     * Submit a job for execution and return a FutureJob holding the result.
+    * 提交一个job执行返回一个异步可获取的结果
+    *
     */
   def submitJob[T, U, R](
                           rdd: RDD[T],
@@ -2095,7 +2115,7 @@ class SparkContext(config: SparkConf) extends Logging {
 
   /**
     * Submit a map stage for execution. This is currently an internal API only, but might be
-    * promoted to DeveloperApi in the future.
+    * promoted(提升为) to DeveloperApi in the future.
     */
   private[spark] def submitMapStage[K, V, C](dependency: ShuffleDependency[K, V, C])
   : SimpleFutureAction[MapOutputStatistics] = {
@@ -2150,9 +2170,12 @@ class SparkContext(config: SparkConf) extends Logging {
   /**
     * Clean a closure to make it ready to serialized and send to tasks
     * (removes unreferenced variables in $outer's, updates REPL variables)
-    * If <tt>checkSerializable</tt> is set, <tt>clean</tt> will also proactively
+    * If <tt>checkSerializable</tt> is set, <tt>clean</tt> will also proactively(主动)
     * check to see if <tt>f</tt> is serializable and throw a <tt>SparkException</tt>
     * if not.
+    *
+    * 目的是为了清除闭包(中的不能序列化的对象)和外部没有引用的变量，如果checkSerializable被设置了，clean函数会注定检查f是否
+    * 可以序列化，如果不可以的话将会抛出SparkException异常
     *
     * @param f                 the closure to clean
     * @param checkSerializable whether or not to immediately check <tt>f</tt> for serializability
@@ -2267,7 +2290,9 @@ class SparkContext(config: SparkConf) extends Logging {
     _listenerBusStarted = true
   }
 
-  /** Post the application start event */
+  /**
+    * Post the application start event
+    */
   private def postApplicationStart() {
     // Note: this code assumes that the task scheduler has been initialized and has contacted
     // the cluster manager to get an application ID (in case the cluster manager provides one).
@@ -2275,12 +2300,16 @@ class SparkContext(config: SparkConf) extends Logging {
       startTime, sparkUser, applicationAttemptId, schedulerBackend.getDriverLogUrls))
   }
 
-  /** Post the application end event */
+  /**
+    * Post the application end event
+    */
   private def postApplicationEnd() {
     listenerBus.post(SparkListenerApplicationEnd(System.currentTimeMillis))
   }
 
-  /** Post the environment update event once the task scheduler is ready */
+  /**
+    * Post the environment update event once the task scheduler is ready
+    */
   private def postEnvironmentUpdate() {
     if (taskScheduler != null) {
       val schedulingMode = getSchedulingMode.toString
@@ -2299,7 +2328,8 @@ class SparkContext(config: SparkConf) extends Logging {
   SparkContext.setActiveContext(this, allowMultipleContexts)
 }
 
-// class SparkContext 定义结束
+//TODO  class SparkContext 定义结束
+
 
 /**
   * The SparkContext object contains a number of implicit conversions and parameters for use with

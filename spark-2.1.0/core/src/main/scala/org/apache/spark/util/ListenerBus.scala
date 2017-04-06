@@ -27,6 +27,8 @@ import org.apache.spark.internal.Logging
 
 /**
  * An event bus which posts events to its listeners.
+  *<br>将事件转发到其事件监听器上<br>
+  *
  */
 private[spark] trait ListenerBus[L <: AnyRef, E] extends Logging {
 

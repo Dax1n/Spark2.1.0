@@ -130,16 +130,16 @@ import org.apache.spark.util._
   * tasks from the old attempt of a stage could still be running, care must be taken to map any
   * events received in the correct Stage object.
   * <br><br>  为了失败恢复，相同的stage可能需要执行多次，这称为"attempts"。如果TaskScheduler汇报一个task由于上一个map输出
-  文件丢失的话，DAGScheduler将会重新提交丢失的stage，这个可以通过完成的FetchFailed或ExecutorLost时间侦查到。
-  DAGScheduler会等一小段时间去检查是否其他节点也存在这种情况或者是Task失败，然后重新提交TaskSet给丢失的stage计算
-  丢失的Task。在这个过程中，我们必须从新创建Stage Object，因为之前的Stage Object对象已经被清除。失败的stage有可能由于attempt
-  还会执行，必须在正确的Stage Object中考虑事件(翻译的不是很得体)<br><br>
+  * 文件丢失的话，DAGScheduler将会重新提交丢失的stage，这个可以通过完成的FetchFailed或ExecutorLost时间侦查到。
+  * DAGScheduler会等一小段时间去检查是否其他节点也存在这种情况或者是Task失败，然后重新提交TaskSet给丢失的stage计算
+  * 丢失的Task。在这个过程中，我们必须从新创建Stage Object，因为之前的Stage Object对象已经被清除。失败的stage有可能由于attempt
+  * 还会执行，必须在正确的Stage Object中考虑事件(翻译的不是很得体)<br><br>
   *
   * Here's a checklist to use when making or reviewing changes to this class:
   *
   * - All data structures should be cleared when the jobs involving them end to avoid indefinite
   * accumulation of state in long-running programs.<br>
-  *当job执行完毕之后该job的所有的数据必须清除掉，避免无限的积累<br>
+  * 当job执行完毕之后该job的所有的数据必须清除掉，避免无限的积累<br>
   * - When adding a new data structure, update `DAGSchedulerSuite.assertDataStructuresEmpty` to
   * include the new structure. This will help to catch memory leaks.
   */
@@ -214,16 +214,23 @@ private[spark] class DAGScheduler(
 
   private[scheduler] val outputCommitCoordinator = env.outputCommitCoordinator
 
-  // A closure serializer that we reuse.
-  // This is only safe because DAGScheduler runs in a single thread.
+  /**
+    * A closure serializer that we reuse.
+    * This is only safe because DAGScheduler runs in a single thread.
+    */
   private val closureSerializer = SparkEnv.get.closureSerializer.newInstance()
 
-  /** If enabled, FetchFailed will not cause stage retry, in order to surface the problem. */
+  /** If enabled, FetchFailed will not cause stage retry, in order to surface the problem.
+    *
+    */
   private val disallowStageRetryForTest = sc.getConf.getBoolean("spark.test.noStageRetry", false)
 
   private val messageScheduler =
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("dag-scheduler-message")
 
+  /**
+    * 重点啊，这个DAGScheduler的事件处理器，很多消息发给它，由它处理。包括作业的提交
+    */
   private[scheduler] val eventProcessLoop = new DAGSchedulerEventProcessLoop(this)
   taskScheduler.setDAGScheduler(this)
 
@@ -617,20 +624,21 @@ private[spark] class DAGScheduler(
     assert(partitions.size > 0)
     val func2 = func.asInstanceOf[(TaskContext, Iterator[_]) => _]
     val waiter = new JobWaiter(this, jobId, partitions.size, resultHandler)
-    eventProcessLoop.post(JobSubmitted(
-      jobId, rdd, func2, partitions.toArray, callSite, waiter,
-      SerializationUtils.clone(properties)))
+    //TODO 重点代码，给自己发送消息之后，在org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.doOnReceive进行提交作业
+    //TODO 当rdd触发action操作之后，会调用SparkContext的runJob方法，最后调用的DAGScheduler.handleJobSubmitted方法完成整个job的提交。
+    eventProcessLoop.post(JobSubmitted(jobId, rdd, func2, partitions.toArray, callSite, waiter, SerializationUtils.clone(properties)))
     waiter
   }
 
   /**
     * Run an action job on the given RDD and pass all the results to the resultHandler function as
-    * they arrive.
+    * they arrive.<br><br>在给定的RDD上运行一个action触发的作业，传递到来的结果给resultHandler函数<br>
     *
-    * @param rdd           target RDD to run tasks on
-    * @param func          a function to run on each partition of the RDD
+    * @param rdd           target RDD to run tasks on 需要计算的RDD
+    * @param func          a function to run on each partition of the RDD 运行在RDD分区上的计算逻辑
     * @param partitions    set of partitions to run on; some jobs may not want to compute on all
     *                      partitions of the target RDD, e.g. for operations like first()
+    *
     * @param callSite      where in the user program this job was called
     * @param resultHandler callback to pass each result to
     * @param properties    scheduler properties to attach to this job, e.g. fair scheduler pool name
@@ -860,6 +868,16 @@ private[spark] class DAGScheduler(
     listenerBus.post(SparkListenerTaskGettingResult(taskInfo))
   }
 
+  /**
+    * 处理SparkContext的runJob方法最终调用该方法
+    * @param jobId
+    * @param finalRDD
+    * @param func
+    * @param partitions
+    * @param callSite
+    * @param listener
+    * @param properties
+    */
   private[scheduler] def handleJobSubmitted(jobId: Int,
                                             finalRDD: RDD[_],
                                             func: (TaskContext, Iterator[_]) => _,
@@ -896,7 +914,7 @@ private[spark] class DAGScheduler(
     listenerBus.post(
       SparkListenerJobStart(job.jobId, jobSubmissionTime, stageInfos, properties))
     submitStage(finalStage)
-  }
+  } //handleJobSubmitted 定义结束
 
   private[scheduler] def handleMapStageSubmitted(jobId: Int,
                                                  dependency: ShuffleDependency[_, _, _],
@@ -1628,13 +1646,16 @@ private[spark] class DAGScheduler(
   eventProcessLoop.start()
 }
 
+//TODO DAGScheduler 定义结束
+
 private[scheduler] class DAGSchedulerEventProcessLoop(dagScheduler: DAGScheduler)
   extends EventLoop[DAGSchedulerEvent]("dag-scheduler-event-loop") with Logging {
 
   private[this] val timer = dagScheduler.metricsSource.messageProcessingTimer
 
   /**
-    * The main event loop of the DAG scheduler.
+    * The main event loop of the DAG scheduler.事件循环处理器，当消息来了之后发给doOnReceive
+    *
     */
   override def onReceive(event: DAGSchedulerEvent): Unit = {
     val timerContext = timer.time()
@@ -1645,8 +1666,13 @@ private[scheduler] class DAGSchedulerEventProcessLoop(dagScheduler: DAGScheduler
     }
   }
 
+  /**
+    *
+    * @param event 事件消息是由org.apache.spark.scheduler.DAGSchedulerEventProcessLoop#onReceive发来的
+    */
   private def doOnReceive(event: DAGSchedulerEvent): Unit = event match {
     case JobSubmitted(jobId, rdd, func, partitions, callSite, listener, properties) =>
+      //TODO org.apache.spark.scheduler.DAGScheduler.handleJobSubmitted真正触发作业
       dagScheduler.handleJobSubmitted(jobId, rdd, func, partitions, callSite, listener, properties)
 
     case MapStageSubmitted(jobId, dependency, callSite, listener, properties) =>

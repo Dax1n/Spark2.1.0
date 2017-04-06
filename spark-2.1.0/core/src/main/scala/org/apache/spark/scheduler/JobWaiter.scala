@@ -26,6 +26,7 @@ import org.apache.spark.internal.Logging
 /**
  * An object that waits for a DAGScheduler job to complete. As tasks finish, it passes their
  * results to the given handler function.
+  * <br>等待DAGScheduler job运行完毕的一个对象，当task运行完毕，该对象将结果传递给“给定的handler函数”<br>
  */
 private[spark] class JobWaiter[T](
     dagScheduler: DAGScheduler,
