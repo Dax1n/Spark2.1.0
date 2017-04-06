@@ -63,6 +63,12 @@ object UnionRDD {
     new ForkJoinTaskSupport(new ForkJoinPool(8))
 }
 
+/**
+  *
+  * @param sc
+  * @param rdds
+  * @tparam T
+  */
 @DeveloperApi
 class UnionRDD[T: ClassTag](
     sc: SparkContext,

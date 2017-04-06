@@ -23,7 +23,8 @@ import org.apache.spark.storage.BlockManagerId
 import org.apache.spark.util.CallSite
 
 /**
- * ShuffleMapStages are intermediate stages in the execution DAG that produce data for a shuffle.
+ * ShuffleMapStages are intermediate stages in the execution DAG that produce data for a shuffle.<br>
+  *  执行shuffle产生数据过程中，ShuffleMapStages是一个中间的Satge <br>
  * They occur right before each shuffle operation, and might contain multiple pipelined operations
  * before that (e.g. map and filter). When executed, they save map output files that can later be
  * fetched by reduce tasks. The `shuffleDep` field describes the shuffle each stage is part of,

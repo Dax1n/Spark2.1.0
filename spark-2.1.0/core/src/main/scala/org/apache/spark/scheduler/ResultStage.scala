@@ -26,6 +26,10 @@ import org.apache.spark.util.CallSite
  * The ResultStage object captures the function to execute, `func`, which will be applied to each
  * partition, and the set of partition IDs, `partitions`. Some stages may not run on all partitions
  * of the RDD, for actions like first() and lookup().
+  *<br><br>ResultStages会讲一个函数在RDD的一些分区上执行并结算该action的结果，ResultStage会触发函数的执行
+  * ，函数将会应用在每一个分区上，但是有些ResultStages可能只会运行在RDD的部分分区上，例如first() 和lookup()算子
+  * <br>
+  *
  */
 private[spark] class ResultStage(
     id: Int,

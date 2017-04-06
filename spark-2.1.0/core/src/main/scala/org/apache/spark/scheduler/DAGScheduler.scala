@@ -180,6 +180,9 @@ private[spark] class DAGScheduler(
     * that dependency. Only includes stages that are part of currently running job (when the job(s)
     * that require the shuffle stage complete, the mapping will be removed, and the only record of
     * the shuffle data will be in the MapOutputTracker).
+    * <br>shuffle dependency id和ShuffleMapStage的映射
+    * shuffle dependency id是由SaprkContext产生的，全局位置的id<br>
+    *
     */
   private[scheduler] val shuffleIdToMapStage = new HashMap[Int, ShuffleMapStage]
   private[scheduler] val jobIdToActiveJob = new HashMap[Int, ActiveJob]
@@ -325,7 +328,10 @@ private[spark] class DAGScheduler(
   /**
     * Gets a shuffle map stage if one exists in shuffleIdToMapStage. Otherwise, if the
     * shuffle map stage doesn't already exist, this method will create the shuffle map stage in
-    * addition to any missing ancestor shuffle map stages.
+    * addition to any missing ancestor shuffle map stages.<br>
+    *如果shuffleIdToMapStage已经存在该依赖的stage的话，则返回该stage，否则根据当前的依赖创建Stage
+    *   <br>
+    *
     */
   private def getOrCreateShuffleMapStage(
                                           shuffleDep: ShuffleDependency[_, _, _],
@@ -334,8 +340,9 @@ private[spark] class DAGScheduler(
       case Some(stage) =>
         stage
 
-      case None =>
+      case None => //当前依赖不存在Stage，需要创建
         // Create stages for all missing ancestor shuffle dependencies.
+        //getMissingAncestorShuffleDependencies(shuffleDep.rdd) 获取爷爷辈的rdd的依赖
         getMissingAncestorShuffleDependencies(shuffleDep.rdd).foreach { dep =>
           // Even though getMissingAncestorShuffleDependencies only returns shuffle dependencies
           // that were not already in shuffleIdToMapStage, it's possible that by the time we
@@ -355,7 +362,9 @@ private[spark] class DAGScheduler(
     * Creates a ShuffleMapStage that generates the given shuffle dependency's partitions. If a
     * previously run stage generated the same shuffle data, this function will copy the output
     * locations that are still available from the previous shuffle to avoid unnecessarily
-    * regenerating data.
+    * regenerating data.<br>创建一个ShuffleMapStage产生给定的shuffle依赖分区，如果前面产生过这次需要的
+    * 数据了就不会在重新计算产生数据了，而是复制前面的数据<br>
+    *
     */
   def createShuffleMapStage(shuffleDep: ShuffleDependency[_, _, _], jobId: Int): ShuffleMapStage = {
     val rdd = shuffleDep.rdd
@@ -398,7 +407,7 @@ private[spark] class DAGScheduler(
                                  partitions: Array[Int],
                                  jobId: Int,
                                  callSite: CallSite): ResultStage = {
-    val parents = getOrCreateParentStages(rdd, jobId)
+    val parents = getOrCreateParentStages(rdd, jobId) //TODO 划分调用，返回一个List[Stage],注意是List[Stage]
     val id = nextStageId.getAndIncrement()
     val stage = new ResultStage(id, rdd, func, partitions, parents, jobId, callSite)
     stageIdToStage(id) = stage
@@ -407,16 +416,22 @@ private[spark] class DAGScheduler(
   }
 
   /**
-    * Get or create the list of parent stages for a given RDD.  The new Stages will be created with
-    * the provided firstJobId.
+    * Get or create the list of parent stages for a given RDD.  The new Stages will be created with the provided firstJobId.
+    * <br>对于给定的RDD获取或者创建其父Stage的列表<br>
     */
   private def getOrCreateParentStages(rdd: RDD[_], firstJobId: Int): List[Stage] = {
+    //TODO getShuffleDependencies划分调用，返回一个HashSet[ShuffleDependency]，完成依赖的切分，注意返回的HashSet[ShuffleDependency]
     getShuffleDependencies(rdd).map { shuffleDep =>
-      getOrCreateShuffleMapStage(shuffleDep, firstJobId)
+      getOrCreateShuffleMapStage(shuffleDep, firstJobId)// TODO 开始根据每一个依赖创建Satge了
     }.toList
   }
 
-  /** Find ancestor shuffle dependencies that are not registered in shuffleToMapStage yet */
+  /**
+    * Find ancestor shuffle dependencies that are not registered in shuffleToMapStage yet
+    * 查找至今没有在shuffleToMapStage中注册的祖先shuffle依赖
+    * @param rdd
+    * @return
+    */
   private def getMissingAncestorShuffleDependencies(
                                                      rdd: RDD[_]): Stack[ShuffleDependency[_, _, _]] = {
     val ancestors = new Stack[ShuffleDependency[_, _, _]]
@@ -441,7 +456,10 @@ private[spark] class DAGScheduler(
   }
 
   /**
-    * Returns shuffle dependencies that are immediate parents of the given RDD.
+    * Returns shuffle dependencies that are immediate parents of the given RDD.<br>
+    *   返回给定的RDD的shuffle依赖，这个函数只会返回上一级的shuffle依赖，不会返回再上一层次的了<br>
+    *     例如：A <-- B <-- C  ， C只会返回B，而不会返回A
+    *   <br>
     *
     * This function will not return more distant ancestors.  For example, if C has a shuffle
     * dependency on B which has a shuffle dependency on A:
@@ -451,26 +469,29 @@ private[spark] class DAGScheduler(
     * calling this function with rdd C will only return the B <-- C dependency.
     *
     * This function is scheduler-visible for the purpose of unit testing.
+    *<br><br>
+    * 重点：切断shuffle依赖的重点方法
     */
-  private[scheduler] def getShuffleDependencies(
+  private[scheduler] def getShuffleDependencies(//TODO 划分Stage的方法
                                                  rdd: RDD[_]): HashSet[ShuffleDependency[_, _, _]] = {
-    val parents = new HashSet[ShuffleDependency[_, _, _]]
-    val visited = new HashSet[RDD[_]]
-    val waitingForVisit = new Stack[RDD[_]]
+    val parents = new HashSet[ShuffleDependency[_, _, _]] //TODO 存储依赖的
+    val visited = new HashSet[RDD[_]] //存储访问过的RDD
+    val waitingForVisit = new Stack[RDD[_]] //存储待访问的RDD栈
     waitingForVisit.push(rdd)
-    while (waitingForVisit.nonEmpty) {
-      val toVisit = waitingForVisit.pop()
-      if (!visited(toVisit)) {
-        visited += toVisit
-        toVisit.dependencies.foreach {
+    while (waitingForVisit.nonEmpty) {//还有待访问的RDD的话进行访问
+      val toVisit = waitingForVisit.pop()//出栈
+      if (!visited(toVisit)) { //判断当前RDD是否被访问过
+        visited += toVisit //存储未访问过的RDD到访问过的set中
+        //TODO Spark中就两种依赖，分别是ShuffleDependency和NarrowDependency
+        toVisit.dependencies.foreach {//toVisit的父RDD可能是一个(例如：map算子)或者多个(例如：UnionRDD)，对toVisit的父RDD进行foreach判断
           case shuffleDep: ShuffleDependency[_, _, _] =>
-            parents += shuffleDep
+            parents += shuffleDep //TODO Shuffle依赖则切分，但是注意啊，容易迷惑，此处支持划分依赖但是还没创建Stage
           case dependency =>
-            waitingForVisit.push(dependency.rdd)
+            waitingForVisit.push(dependency.rdd) //记录当前未访问过的RDD
         }
       }
     }
-    parents
+    parents //返回依赖
   }
 
   private def getMissingParentStages(stage: Stage): List[Stage] = {
@@ -889,7 +910,7 @@ private[spark] class DAGScheduler(
     try {
       // New stage creation may throw an exception if, for example, jobs are run on a
       // HadoopRDD whose underlying HDFS files have been deleted.
-      finalStage = createResultStage(finalRDD, func, partitions, jobId, callSite)
+      finalStage = createResultStage(finalRDD, func, partitions, jobId, callSite)//TODO 从后向前划分stage
     } catch {
       case e: Exception =>
         logWarning("Creating new stage failed due to exception - job: " + jobId, e)

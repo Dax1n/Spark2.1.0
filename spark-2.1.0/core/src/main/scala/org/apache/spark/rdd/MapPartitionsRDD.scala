@@ -22,8 +22,16 @@ import scala.reflect.ClassTag
 import org.apache.spark.{Partition, TaskContext}
 
 /**
- * An RDD that applies the provided function to every partition of the parent RDD.
- */
+  * An RDD that applies the provided function to every partition of the parent RDD.
+  *
+  * <br>注意：prev是MapPartitionsRDD的一个成员，这个是scala的语法定义形式<br>
+  *
+  * @param prev 该RDD的父RDD
+  * @param f
+  * @param preservesPartitioning
+  * @tparam U
+  * @tparam T
+  */
 private[spark] class MapPartitionsRDD[U: ClassTag, T: ClassTag](
     var prev: RDD[T],
     f: (TaskContext, Int, Iterator[T]) => Iterator[U],  // (TaskContext, partition index, iterator)

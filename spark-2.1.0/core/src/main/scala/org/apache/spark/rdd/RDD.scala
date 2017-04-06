@@ -127,6 +127,8 @@ abstract class RDD[T: ClassTag](
   /**
    * Implemented by subclasses to return how this RDD depends on parent RDDs. This method will only
    * be called once, so it is safe to implement a time-consuming computation in it.
+    * <br>由子类实现返回当前RDD如何依赖父RDD的<br>
+    *
    */
   protected def getDependencies: Seq[Dependency[_]] = deps
 
@@ -230,8 +232,8 @@ abstract class RDD[T: ClassTag](
   private def checkpointRDD: Option[CheckpointRDD[T]] = checkpointData.flatMap(_.checkpointRDD)
 
   /**
-   * Get the list of dependencies of this RDD, taking into account whether the
-   * RDD is checkpointed or not.
+   * Get the list of dependencies of this RDD, taking into account whether the RDD is checkpointed or not.
+   * <br>获取该RDD的依赖列表<br>
    */
   final def dependencies: Seq[Dependency[_]] = {
     checkpointRDD.map(r => List(new OneToOneDependency(r))).getOrElse {
@@ -368,6 +370,7 @@ abstract class RDD[T: ClassTag](
    */
   def map[U: ClassTag](f: T => U): RDD[U] = withScope {
     val cleanF = sc.clean(f)
+    // 第一个参数是当前的RDD，传入目的是作为新的MapPartitionsRDD的父RDD存在，就是建立依赖关系
     new MapPartitionsRDD[U, T](this, (context, pid, iter) => iter.map(cleanF))
   }
 
