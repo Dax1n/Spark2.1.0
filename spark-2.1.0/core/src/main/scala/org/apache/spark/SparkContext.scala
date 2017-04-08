@@ -1990,6 +1990,7 @@ class SparkContext(config: SparkConf) extends Logging {
     * @tparam T
     * @tparam U
     */
+  //TODO 当rdd触发action操作之后，会调用SparkContext的runJob方法，最后调用的DAGScheduler.handleJobSubmitted方法完成整个job的提交。
   def runJob[T, U: ClassTag](rdd: RDD[T], func: (TaskContext, Iterator[T]) => U,
                              partitions: Seq[Int], resultHandler: (Int, U) => Unit): Unit = {
     if (stopped.get()) {

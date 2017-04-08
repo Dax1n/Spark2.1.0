@@ -96,6 +96,10 @@ class UnionRDD[T: ClassTag](
     array
   }
 
+  /**
+    *
+    * @return
+    */
   override def getDependencies: Seq[Dependency[_]] = {
     val deps = new ArrayBuffer[Dependency[_]]
     var pos = 0
