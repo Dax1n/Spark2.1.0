@@ -65,7 +65,10 @@ private[scheduler] abstract class Stage(
 
   val numPartitions = rdd.partitions.length
 
-  /** Set of jobs that this stage belongs to. */
+  /**
+    * Set of jobs that this stage belongs to.<br>声明位置：
+    * org.apache.spark.scheduler.Stage#jobIds()<br>
+    */
   val jobIds = new HashSet[Int]
 
   val pendingPartitions = new HashSet[Int]
