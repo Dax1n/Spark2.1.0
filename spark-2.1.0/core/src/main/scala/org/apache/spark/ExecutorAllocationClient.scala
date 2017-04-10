@@ -20,6 +20,10 @@ package org.apache.spark
 /**
  * A client that communicates with the cluster manager to request or kill executors.
  * This is currently supported only in YARN mode.
+  * <br>
+  *   和集群管理者进行请求或者杀死executors。<br>
+  *     这个目前仅在YARN模式下支持
+  *
  */
 private[spark] trait ExecutorAllocationClient {
 

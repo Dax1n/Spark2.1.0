@@ -94,6 +94,10 @@ private[spark] class LocalEndpoint(
  * Used when running a local version of Spark where the executor, backend, and master all run in
  * the same JVM. It sits behind a [[TaskSchedulerImpl]] and handles launching tasks on a single
  * Executor (created by the [[LocalSchedulerBackend]]) running locally.
+  * <br><br>这个是Spark Local模式下使用的SchedulerBackend，本地模式xecutor, backend,  master 都运行在想用的线程
+  *
+  *
+  *
  */
 private[spark] class LocalSchedulerBackend(
     conf: SparkConf,

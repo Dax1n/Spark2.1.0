@@ -1065,6 +1065,7 @@ private[spark] class DAGScheduler(
 
     /**
       * First figure out the indexes of partition ids to compute.
+      * <br>存储需要计算的分区id<br>
       */
     val partitionsToCompute: Seq[Int] = stage.findMissingPartitions()
 
@@ -1114,11 +1115,11 @@ private[spark] class DAGScheduler(
     // task gets a different copy of the RDD. This provides stronger isolation between tasks that
     // might modify state of objects referenced in their closures. This is necessary in Hadoop
     // where the JobConf/Configuration object is not thread-safe.
-    var taskBinary: Broadcast[Array[Byte]] = null
+    var taskBinary: Broadcast[Array[Byte]] = null //任务的二进制信息，并不是任务的二进制数据
     try {
       // For ShuffleMapTask, serialize and broadcast (rdd, shuffleDep).
       // For ResultTask, serialize and broadcast (rdd, func).
-      val taskBinaryBytes: Array[Byte] = stage match {
+      val taskBinaryBytes: Array[Byte] = stage match { //TODO 序列化Task的Rdd和依赖信息
         case stage: ShuffleMapStage =>
           JavaUtils.bufferToArray(
             closureSerializer.serialize((stage.rdd, stage.shuffleDep): AnyRef))
@@ -1126,7 +1127,7 @@ private[spark] class DAGScheduler(
           JavaUtils.bufferToArray(closureSerializer.serialize((stage.rdd, stage.func): AnyRef))
       }
 
-      taskBinary = sc.broadcast(taskBinaryBytes)
+      taskBinary = sc.broadcast(taskBinaryBytes) //广播出去
     } catch {
       // In the case of a failure during serialization, abort the stage.
       case e: NotSerializableException =>
@@ -1145,22 +1146,22 @@ private[spark] class DAGScheduler(
     val tasks: Seq[Task[_]] = try {
       stage match {
         case stage: ShuffleMapStage =>
-          partitionsToCompute.map { id =>
+          partitionsToCompute.map { id => //遍历存储需要计算的分区id，为每一个分区创建task ，最后返回一个task任务列表
             val locs = taskIdToLocations(id)
             val part = stage.rdd.partitions(id)
             //创建ShuffleMapTask
-            new ShuffleMapTask(stage.id, stage.latestInfo.attemptId,
+            new ShuffleMapTask(stage.id, stage.latestInfo.attemptId,  //TODO 创建Task
               taskBinary, part, locs, stage.latestInfo.taskMetrics, properties, Option(jobId),
               Option(sc.applicationId), sc.applicationAttemptId)
           }
 
         case stage: ResultStage =>
-          partitionsToCompute.map { id =>
+          partitionsToCompute.map { id => //遍历存储需要计算的分区id，为每一个分区创建task ，最后返回一个task任务列表
             val p: Int = stage.partitions(id)
             val part = stage.rdd.partitions(p)
             val locs = taskIdToLocations(id)
             //创建ResultTask
-            new ResultTask(stage.id, stage.latestInfo.attemptId,
+            new ResultTask(stage.id, stage.latestInfo.attemptId,  //TODO 创建Task
               taskBinary, part, locs, id, properties, stage.latestInfo.taskMetrics,
               Option(jobId), Option(sc.applicationId), sc.applicationAttemptId)
           }
@@ -1174,7 +1175,7 @@ private[spark] class DAGScheduler(
 
     if (tasks.size > 0) {
       logInfo("Submitting " + tasks.size + " missing tasks from " + stage + " (" + stage.rdd + ")")
-      stage.pendingPartitions ++= tasks.map(_.partitionId)
+      stage.pendingPartitions ++= tasks.map(_.partitionId) //记录当前stage计算的分区
       logDebug("New pending partitions: " + stage.pendingPartitions)
       //TODO 重要！创建TaskSet并使用taskScheduler的submitTasks方法提交Stage
       taskScheduler.submitTasks(new TaskSet(tasks.toArray, stage.id, stage.latestInfo.attemptId, jobId, properties))
@@ -1651,7 +1652,7 @@ private[spark] class DAGScheduler(
 
   /**
     * Gets the locality information associated with a partition of a particular RDD.
-    *
+    *<br>获取一个指定RDD的分区的locality information<br>
     * This method is thread-safe and is called from both DAGScheduler and SparkContext.
     *
     * @param rdd       whose partitions are to be looked at

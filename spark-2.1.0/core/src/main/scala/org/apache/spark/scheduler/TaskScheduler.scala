@@ -54,7 +54,11 @@ private[spark] trait TaskScheduler {
   // Disconnect from the cluster.
   def stop(): Unit
 
-  // Submit a sequence of tasks to run.
+  /**
+    *
+    * Submit a sequence of tasks to run.<br>提交任务集合去运行<br>
+    * @param taskSet
+    */
   def submitTasks(taskSet: TaskSet): Unit
 
   // Cancel a stage.

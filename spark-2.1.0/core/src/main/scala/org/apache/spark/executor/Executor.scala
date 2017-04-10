@@ -80,7 +80,10 @@ private[spark] class Executor(
     Thread.setDefaultUncaughtExceptionHandler(SparkUncaughtExceptionHandler)
   }
 
-  // Start worker thread pool
+  /**
+    *Start worker thread pool <br>
+    * ThreadPoolExecutor
+    */
   private val threadPool = ThreadUtils.newDaemonCachedThreadPool("Executor task launch worker")
   private val executorSource = new ExecutorSource(threadPool, executorId)
 
@@ -140,9 +143,11 @@ private[spark] class Executor(
       attemptNumber: Int,
       taskName: String,
       serializedTask: ByteBuffer): Unit = {
+    //TODO TaskRunner 是一个实现Runnable的执行单位
     val tr = new TaskRunner(context, taskId = taskId, attemptNumber = attemptNumber, taskName,
       serializedTask)
     runningTasks.put(taskId, tr)
+    //TODO 真正执行反序列化之后的任务
     threadPool.execute(tr)
   }
 

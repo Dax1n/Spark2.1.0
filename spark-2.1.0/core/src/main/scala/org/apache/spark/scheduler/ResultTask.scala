@@ -29,7 +29,7 @@ import org.apache.spark.rdd.RDD
 
 /**
  * A task that sends back the output to the driver application.
- *
+ * 一个可以将输出结果发送回给driver应用的任务
  * See [[Task]] for more information.
  *
  * @param stageId id of the stage this task belongs to
