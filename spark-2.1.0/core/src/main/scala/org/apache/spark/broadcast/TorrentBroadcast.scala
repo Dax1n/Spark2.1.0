@@ -84,7 +84,9 @@ private[spark] class TorrentBroadcast[T: ClassTag](obj: T, id: Long)
 
   private val broadcastId = BroadcastBlockId(id)
 
-  /** Total number of blocks this broadcast variable contains. */
+  /**
+    * Total number of blocks this broadcast variable contains.
+    */
   private val numBlocks: Int = writeBlocks(obj)
 
   /** Whether to generate checksum for blocks or not. */
@@ -110,7 +112,7 @@ private[spark] class TorrentBroadcast[T: ClassTag](obj: T, id: Long)
 
   /**
    * Divide the object into multiple blocks and put those blocks in the block manager.
-   *
+   *首先调用putSingle将整个数据写入到blockManager，然后调用blockifyObject将数据分成多个block，然后将每个block写入到blockManager。
    * @param value the object to divide
    * @return number of blocks this broadcast variable is divided into
    */
@@ -118,11 +120,14 @@ private[spark] class TorrentBroadcast[T: ClassTag](obj: T, id: Long)
     import StorageLevel._
     // Store a copy of the broadcast variable in the driver so that tasks run on the driver
     // do not create a duplicate copy of the broadcast variable's value.
+    //
     val blockManager = SparkEnv.get.blockManager
+    //TODO 首先调用putSingle将整个数据写入到blockManager
     if (!blockManager.putSingle(broadcastId, value, MEMORY_AND_DISK, tellMaster = false)) {
       throw new SparkException(s"Failed to store $broadcastId in BlockManager")
     }
     val blocks =
+      //然后调用blockifyObject将数据分成多个block，然后将每个block写入到blockManager。
       TorrentBroadcast.blockifyObject(value, blockSize, SparkEnv.get.serializer, compressionCodec)
     if (checksumEnabled) {
       checksums = new Array[Int](blocks.length)

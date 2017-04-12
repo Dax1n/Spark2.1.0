@@ -55,7 +55,7 @@ private[spark] class BlockResult(
 /**
  * Manager running on every node (driver and executors) which provides interfaces for putting and
  * retrieving blocks both locally and remotely into various stores (memory, disk, and off-heap).
- *
+ *<br>运行在每一个节点上面的管理器，提供本地或者远程存入或者检索块（在内存、磁盘或者堆外）<br>
  * Note that [[initialize()]] must be called before the BlockManager is usable.
  */
 private[spark] class BlockManager(
