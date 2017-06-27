@@ -116,6 +116,7 @@ private[netty] class Inbox(val endpointRef: NettyRpcEndpointRef, val endpoint: R
         message match {
           case RpcMessage(_sender, content, context) =>
             try {
+              //TODO 当消息类型为RpcMessage时候调用EndPoint的receiveAndReply
               endpoint.receiveAndReply(context).applyOrElse[Any, Unit](content, { msg => throw new SparkException(s"Unsupported message $message from ${_sender}") })
             } catch {
               case NonFatal(e) =>
@@ -124,7 +125,7 @@ private[netty] class Inbox(val endpointRef: NettyRpcEndpointRef, val endpoint: R
                 // The endpoint's onError function will be called.
                 throw e
             }
-
+            //TODO 当消息为OneWayMessage调用EndPoint的receive
           case OneWayMessage(_sender, content) =>
             endpoint.receive.applyOrElse[Any, Unit](content, { msg =>
               throw new SparkException(s"Unsupported message $message from ${_sender}")

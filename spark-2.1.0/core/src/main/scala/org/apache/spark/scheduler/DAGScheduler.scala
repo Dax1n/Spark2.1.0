@@ -1146,7 +1146,7 @@ private[spark] class DAGScheduler(
     val tasks: Seq[Task[_]] = try {
       stage match {
         case stage: ShuffleMapStage =>
-          partitionsToCompute.map { id => //遍历存储需要计算的分区id，为每一个分区创建task ，最后返回一个task任务列表
+          partitionsToCompute.map { id => //TODO 遍历存储需要计算的分区id，为每一个分区创建task ，最后返回一个task任务列表
             val locs = taskIdToLocations(id)
             val part = stage.rdd.partitions(id)
             //创建ShuffleMapTask
@@ -1183,7 +1183,7 @@ private[spark] class DAGScheduler(
     } else {
       //提交完毕
       // Because we posted SparkListenerStageSubmitted earlier, we should mark
-      // the stage as completed here in case there are no tasks to run
+      // thJobe stage as completed here in case there are no tasks to run
       markStageAsFinished(stage, None)
 
       val debugString = stage match {

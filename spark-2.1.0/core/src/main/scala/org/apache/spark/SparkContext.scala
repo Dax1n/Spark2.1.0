@@ -205,6 +205,9 @@ class SparkContext(config: SparkConf) extends Logging {
   private var _conf: SparkConf = _
   private var _eventLogDir: Option[URI] = None
   private var _eventLogCodec: Option[String] = None
+  /**
+    * SparkEnv成员
+    */
   private var _env: SparkEnv = _
   private var _jobProgressListener: JobProgressListener = _
   private var _statusTracker: SparkStatusTracker = _
@@ -294,9 +297,11 @@ class SparkContext(config: SparkConf) extends Logging {
                                      conf: SparkConf,
                                      isLocal: Boolean,
                                      listenerBus: LiveListenerBus): SparkEnv = {
+    //TODO  create  DriverEnv
     SparkEnv.createDriverEnv(conf, isLocal, listenerBus, SparkContext.numDriverCores(master))
   }
 
+  //TODO SparkEnv中有RpvEnv的引用
   private[spark] def env: SparkEnv = _env
 
   // Used to store a URL for each static file/jar together with the file's local timestamp

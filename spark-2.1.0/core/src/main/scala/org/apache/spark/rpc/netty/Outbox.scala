@@ -81,6 +81,11 @@ private[netty] case class RpcOutboxMessage(
 
 }
 
+/**
+  *
+  * @param nettyEnv
+  * @param address
+  */
 private[netty] class Outbox(nettyEnv: NettyRpcEnv, val address: RpcAddress) {
 
   outbox => // Give this an alias so we can use it more clearly in closures.

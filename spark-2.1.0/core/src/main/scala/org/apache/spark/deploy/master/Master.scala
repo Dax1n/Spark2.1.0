@@ -221,7 +221,7 @@ private[deploy] class Master(
   override def revokedLeadership() {
     self.send(RevokedLeadership)
   }
-
+  //TODO 当消息为OneWayMessage调用EndPoint的receive
   override def receive: PartialFunction[Any, Unit] = {
     case ElectedLeader =>
       val (storedApps, storedDrivers, storedWorkers) = persistenceEngine.readPersistedData(rpcEnv)
@@ -413,6 +413,7 @@ private[deploy] class Master(
     * @return
     */
   override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
+    //TODO 当消息类型为RpcMessage时候调用EndPoint的receiveAndReply
     case RegisterWorker(//worker发来的注册消息
     id, workerHost, workerPort, workerRef, cores, memory, workerWebUiUrl) =>
       logInfo("Registering worker %s:%d with %d cores, %s RAM".format(
@@ -600,12 +601,12 @@ private[deploy] class Master(
   /**
     * Schedule executors to be launched on the workers.
     * Returns an array containing number of cores assigned to each worker.<br><br>
-    *调度在worker上启动的executor<br><br>
+    * 调度在worker上启动的executor<br><br>
     * There are two modes of launching executors. The first attempts to spread out an application's
     * executors on as many workers as possible, while the second does the opposite (i.e. launch them
     * on as few workers as possible). The former(前者) is usually better for data locality purposes and is
     * the default.<br><br>
-    *两种调度模式：一种尽可能的分布再尽可能多的worker上，另一种是集中分布在几个worker上<br><br>
+    * 两种调度模式：一种尽可能的分布再尽可能多的worker上，另一种是集中分布在几个worker上<br><br>
     * The number of cores assigned to each executor is configurable. When this is explicitly set,
     * multiple executors from the same application may be launched on the same worker if the worker
     * has enough cores and memory. Otherwise, each executor grabs all the cores available on the
@@ -618,22 +619,22 @@ private[deploy] class Master(
     * Since 12 < 16, no executors would launch [SPARK-8881].<br><br>scheduleExecutorsOnWorkers返回为每个Worker上分配的cores的数组
     */
   private def scheduleExecutorsOnWorkers(//scheduleExecutorsOnWorkers返回为每个Worker上分配的cores的数组
-                                          app: ApplicationInfo,
-                                          usableWorkers: Array[WorkerInfo], spreadOutApps: Boolean): Array[Int] = {
+                                         app: ApplicationInfo,
+                                         usableWorkers: Array[WorkerInfo], spreadOutApps: Boolean): Array[Int] = {
 
     val coresPerExecutor = app.desc.coresPerExecutor
     /**
       * minCoresPerExecutor = coresPerExecutor.getOrElse(1)<br><br>
-      *   每一个executor需要最少的核心数
+      * 每一个executor需要最少的核心数
       */
     val minCoresPerExecutor = coresPerExecutor.getOrElse(1)
 
     /**
-      *  val oneExecutorPerWorker = coresPerExecutor.isEmpty
+      * val oneExecutorPerWorker = coresPerExecutor.isEmpty
       */
     val oneExecutorPerWorker = coresPerExecutor.isEmpty
     /**
-      *val memoryPerExecutor = app.desc.memoryPerExecutorMB
+      * val memoryPerExecutor = app.desc.memoryPerExecutorMB
       */
     val memoryPerExecutor = app.desc.memoryPerExecutorMB
     /**
@@ -656,13 +657,14 @@ private[deploy] class Master(
 
     /**
       * Return whether the specified worker can launch an executor for this app.
+      *
       * @param pos
       * @return
       */
     def canLaunchExecutor(pos: Int): Boolean = {
       // 如果app还需要的核数大于 “每个exe最少核数”，也就是需在分配executor
       // （白话说：app还需要的核心数如果不大于一个executor的最少数目的话，那么直接在executor上分配核心数就可以）
-      val keepScheduling = coresToAssign >= minCoresPerExecutor//例如当前还需要2个核心，而每一个executor最少核心是3个，这就无法分配executor了
+      val keepScheduling = coresToAssign >= minCoresPerExecutor //例如当前还需要2个核心，而每一个executor最少核心是3个，这就无法分配executor了
       //当前Worker总共可分配的核数减去已经分配的核数大于“分配一个exe的最小合数”，说明还可以分配
       val enoughCores = usableWorkers(pos).coresFree - assignedCores(pos) >= minCoresPerExecutor
 
@@ -672,7 +674,7 @@ private[deploy] class Master(
       val launchingNewExecutor = !oneExecutorPerWorker || assignedExecutors(pos) == 0
       if (launchingNewExecutor) {
         val assignedMemory = assignedExecutors(pos) * memoryPerExecutor
-        val enoughMemory = usableWorkers(pos).memoryFree - assignedMemory >= memoryPerExecutor//当前可用内存减去已分配内存还够一个executor最小内存的话
+        val enoughMemory = usableWorkers(pos).memoryFree - assignedMemory >= memoryPerExecutor //当前可用内存减去已分配内存还够一个executor最小内存的话
         val underLimit = assignedExecutors.sum + app.executors.size < app.executorLimit //executorLimit为一个应用的限制，这么做是为了spark支持资源的动态分配
         keepScheduling && enoughCores && enoughMemory && underLimit
       } else {
@@ -683,13 +685,14 @@ private[deploy] class Master(
 
     // Keep launching executors until no more workers can accommodate any
     // more executors, or if we have reached this application's limits
-    var freeWorkers = (0 until numUsable).filter(canLaunchExecutor)//获取可以在worker启动executor的int数组
+    var freeWorkers = (0 until numUsable).filter(canLaunchExecutor) //获取可以在worker启动executor的int数组
     while (freeWorkers.nonEmpty) {
       freeWorkers.foreach { pos =>
         var keepScheduling = true //keepScheduling为是否继续调度？意思是：是否还在分配过核心的worker继续分配核心
-        while (keepScheduling && canLaunchExecutor(pos)) {//满足启动executor的条件
+        while (keepScheduling && canLaunchExecutor(pos)) {
+          //满足启动executor的条件
           coresToAssign -= minCoresPerExecutor
-          assignedCores(pos) += minCoresPerExecutor//pos为worker的序号信息，assignedCores(pos) 为序号为pos的worker分配minCoresPerExecutor个核心
+          assignedCores(pos) += minCoresPerExecutor //pos为worker的序号信息，assignedCores(pos) 为序号为pos的worker分配minCoresPerExecutor个核心
 
           // If we are launching one executor per worker, then every iteration assigns 1 core
           // to the executor. Otherwise, every iteration assigns cores to a new executor.
@@ -703,14 +706,15 @@ private[deploy] class Master(
           // many workers as possible. If we are not spreading out, then we should keep
           // scheduling executors on this worker until we use all of its resources.
           // Otherwise, just move on to the next worker.
-          if (spreadOutApps) {//打散的话，设置keepScheduling为false，不在继续分
-            keepScheduling = false//keepScheduling 控制的里层的while循环
+          if (spreadOutApps) {
+            //打散的话，设置keepScheduling为false，不在继续分
+            keepScheduling = false //keepScheduling 控制的里层的while循环
           }
-        }//while
+        } //while
       }
       //再次筛选可以启动Executor的worker
       freeWorkers = freeWorkers.filter(canLaunchExecutor)
-    }//while
+    } //while
     assignedCores
   }
 
@@ -724,8 +728,8 @@ private[deploy] class Master(
     for (app <- waitingApps if app.coresLeft > 0) {
       val coresPerExecutor: Option[Int] = app.desc.coresPerExecutor
       // Filter out workers that don't have enough resources to launch an executor
-      val usableWorkers = workers.toArray.filter(_.state == WorkerState.ALIVE)//筛选资源充足的可用的workers
-    .filter(worker => worker.memoryFree >= app.desc.memoryPerExecutorMB && worker.coresFree >= coresPerExecutor.getOrElse(1)).sortBy(_.coresFree).reverse
+      val usableWorkers = workers.toArray.filter(_.state == WorkerState.ALIVE) //筛选资源充足的可用的workers
+        .filter(worker => worker.memoryFree >= app.desc.memoryPerExecutorMB && worker.coresFree >= coresPerExecutor.getOrElse(1)).sortBy(_.coresFree).reverse
 
       //对该app在每一个worker上分配的核心数（数组）
       val assignedCores = scheduleExecutorsOnWorkers(app, usableWorkers, spreadOutApps)
@@ -734,7 +738,7 @@ private[deploy] class Master(
       //现在我们计算好了每一个worker需要分配的核心数目，接下来就开始正式分配了
       for (pos <- 0 until usableWorkers.length if assignedCores(pos) > 0) {
         //allocateWorkerResourceToExecutors参数列表：应用，该worker给该app的核心数，每一个executor的核心数，worker的信息
-        allocateWorkerResourceToExecutors(app, assignedCores(pos), coresPerExecutor, usableWorkers(pos))//对每一个worker分配信息
+        allocateWorkerResourceToExecutors(app, assignedCores(pos), coresPerExecutor, usableWorkers(pos)) //对每一个worker分配信息
       }
     }
   }
@@ -755,7 +759,9 @@ private[deploy] class Master(
     // If the number of cores per executor is specified, we divide the cores assigned
     // to this worker evenly among the executors with no remainder.
     // Otherwise, we launch a single executor that grabs all the assignedCores on this worker.
-    val numExecutors = coresPerExecutor.map { assignedCores / _ }.getOrElse(1)
+    val numExecutors = coresPerExecutor.map {
+      assignedCores / _
+    }.getOrElse(1)
     val coresToAssign = coresPerExecutor.getOrElse(assignedCores)
 
     for (i <- 1 to numExecutors) {
@@ -773,7 +779,8 @@ private[deploy] class Master(
     *
     */
   private def schedule(): Unit = {
-    if (state != RecoveryState.ALIVE) {//不是active master不操作
+    if (state != RecoveryState.ALIVE) {
+      //不是active master不操作
       return
     }
     // Drivers take strict precedence over executors (严格的优先权)
@@ -784,13 +791,14 @@ private[deploy] class Master(
       */
     val numWorkersAlive = shuffledAliveWorkers.size
     var curPos = 0
-    for (driver <- waitingDrivers.toList) {//遍历每个需要获取资源的driver，按照先入先出FIFO
+    for (driver <- waitingDrivers.toList) {
+      //遍历每个需要获取资源的driver，按照先入先出FIFO
       // iterate over a copy of waitingDrivers
       // We assign workers to each waiting driver in a round-robin fashion. For each driver, we
       // start from the last worker that was assigned a driver, and continue onwards until we have
       // explored all alive workers.
 
-      var launched = false//driver启动标记
+      var launched = false //driver启动标记
       var numWorkersVisited = 0
 
       while (numWorkersVisited < numWorkersAlive && !launched) {
@@ -835,6 +843,7 @@ private[deploy] class Master(
       workers -= w
     }
 
+    //Worker的地址
     val workerAddress = worker.endpoint.address
     if (addressToWorker.contains(workerAddress)) {
       val oldWorker = addressToWorker(workerAddress)
@@ -1112,6 +1121,8 @@ private[deploy] class Master(
   }
 }
 
+//TODO Master定义结束
+
 
 private[deploy] object Master extends Logging {
   /**
@@ -1144,7 +1155,7 @@ private[deploy] object Master extends Logging {
                               webUiPort: Int,
                               conf: SparkConf): (RpcEnv, Int, Option[Int]) = {
     val securityMgr = new SecurityManager(conf)
-    //创建一个RpcEnv环境，类似于Akka的ActorSystem
+    //创建一个RpcEnv环境，此处返回的是NettyRpcEnv
     val rpcEnv = RpcEnv.create(SYSTEM_NAME, host, port, conf, securityMgr)
     //Endpoint类似于Akka的Actor,注册Master到RpcEnv
     val masterEndpoint = rpcEnv.setupEndpoint(ENDPOINT_NAME, new Master(rpcEnv, rpcEnv.address, webUiPort, securityMgr, conf))

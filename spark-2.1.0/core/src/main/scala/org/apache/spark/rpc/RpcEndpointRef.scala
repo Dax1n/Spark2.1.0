@@ -25,8 +25,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.util.RpcUtils
 
 /**
- * A reference for a remote [[RpcEndpoint]]. [[RpcEndpointRef]] is thread-safe.
- */
+  * A reference for a remote [[RpcEndpoint]]. [[RpcEndpointRef]] is thread-safe.
+  */
 private[spark] abstract class RpcEndpointRef(conf: SparkConf)
   extends Serializable with Logging {
 
@@ -35,62 +35,63 @@ private[spark] abstract class RpcEndpointRef(conf: SparkConf)
   private[this] val defaultAskTimeout = RpcUtils.askRpcTimeout(conf)
 
   /**
-   * return the address for the [[RpcEndpointRef]]
-   */
+    * return the address for the [[RpcEndpointRef]]
+    */
   def address: RpcAddress
 
   def name: String
 
   /**
-   * Sends a one-way asynchronous message. Fire-and-forget semantics.
-   */
+    * Sends a one-way asynchronous message. Fire-and-forget semantics.
+    * send方法发送消息后不等待响应，亦即Send-and-forget
+    */
   def send(message: Any): Unit
 
   /**
-   * Send a message to the corresponding [[RpcEndpoint.receiveAndReply)]] and return a [[Future]] to
-   * receive the reply within the specified timeout.
-   *
-   * This method only sends the message once and never retries.
-   */
+    * Send a message to the corresponding [[RpcEndpoint.receiveAndReply)]] and return a [[Future]] to
+    * receive the reply within the specified timeout.
+    *
+    * This method only sends the message once and never retries.
+    */
   def ask[T: ClassTag](message: Any, timeout: RpcTimeout): Future[T]
 
   /**
-   * Send a message to the corresponding [[RpcEndpoint.receiveAndReply)]] and return a [[Future]] to
-   * receive the reply within a default timeout.<br><br>
-   *发送消息给RpcEndpoint，会在RpcEndpoint的receiveAndReply方法行处理，返回一个Future来接受对方的回应<br><br>
-   * This method only sends the message once and never retries.<br><br>消息只会发送一次并且不会重试
-   */
+    * Send a message to the corresponding [[RpcEndpoint.receiveAndReply)]] and return a [[Future]] to
+    * receive the reply within a default timeout.<br><br>
+    * 发送消息给RpcEndpoint，会在RpcEndpoint的receiveAndReply方法行处理，返回一个Future来接受对方的回应<br><br>
+    * This method only sends the message once and never retries.<br><br>消息只会发送一次并且不会重试
+    */
   def ask[T: ClassTag](message: Any): Future[T] = ask(message, defaultAskTimeout)
 
   /**
-   * Send a message to the corresponding [[RpcEndpoint]] and get its result within a default
-   * timeout, or throw a SparkException if this fails even after the default number of retries.
-   * The default `timeout` will be used in every trial of calling `sendWithReply`. Because this
-   * method retries, the message handling in the receiver side should be idempotent.
-   *
-   * Note: this is a blocking action which may cost a lot of time,  so don't call it in a message
-   * loop of [[RpcEndpoint]].
-   *
-   * @param message the message to send
-   * @tparam T type of the reply message
-   * @return the reply message from the corresponding [[RpcEndpoint]]
-   */
+    * Send a message to the corresponding [[RpcEndpoint]] and get its result within a default
+    * timeout, or throw a SparkException if this fails even after the default number of retries.
+    * The default `timeout` will be used in every trial of calling `sendWithReply`. Because this
+    * method retries, the message handling in the receiver side should be idempotent.
+    *
+    * Note: this is a blocking action which may cost a lot of time,  so don't call it in a message
+    * loop of [[RpcEndpoint]].
+    *
+    * @param message the message to send
+    * @tparam T type of the reply message
+    * @return the reply message from the corresponding [[RpcEndpoint]]
+    */
   def askWithRetry[T: ClassTag](message: Any): T = askWithRetry(message, defaultAskTimeout)
 
   /**
-   * Send a message to the corresponding [[RpcEndpoint.receive]] and get its result within a
-   * specified timeout, throw a SparkException if this fails even after the specified number of
-   * retries. `timeout` will be used in every trial of calling `sendWithReply`. Because this method
-   * retries, the message handling in the receiver side should be idempotent.
-   *
-   * Note: this is a blocking action which may cost a lot of time, so don't call it in a message
-   * loop of [[RpcEndpoint]].
-   *
-   * @param message the message to send
-   * @param timeout the timeout duration
-   * @tparam T type of the reply message
-   * @return the reply message from the corresponding [[RpcEndpoint]]
-   */
+    * Send a message to the corresponding [[RpcEndpoint.receive]] and get its result within a
+    * specified timeout, throw a SparkException if this fails even after the specified number of
+    * retries. `timeout` will be used in every trial of calling `sendWithReply`. Because this method
+    * retries, the message handling in the receiver side should be idempotent.
+    *
+    * Note: this is a blocking action which may cost a lot of time, so don't call it in a message
+    * loop of [[RpcEndpoint]].
+    *
+    * @param message the message to send
+    * @param timeout the timeout duration
+    * @tparam T type of the reply message
+    * @return the reply message from the corresponding [[RpcEndpoint]]
+    */
   def askWithRetry[T: ClassTag](message: Any, timeout: RpcTimeout): T = {
     // TODO: Consider removing multiple attempts
     var attempts = 0

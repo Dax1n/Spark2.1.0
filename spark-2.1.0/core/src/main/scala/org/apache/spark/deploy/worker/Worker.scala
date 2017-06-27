@@ -42,7 +42,7 @@ import org.apache.spark.util.{ThreadUtils, Utils}
 
 /**
   *
-  * @param rpcEnv worker所在节点创建的RpcEnv环境
+  * @param rpcEnv 主要注册的rpcEnv(Master的RPCEnv)
   * @param webUiPort  Worker的webui端口
   * @param cores
   * @param memory
@@ -310,7 +310,9 @@ private[deploy] class Worker(
               override def run(): Unit = {
                 try {
                   logInfo("Connecting to master " + masterAddress + "...")
+                  //TODO 在rpcEnv(此处的rpcEnv是Master的rpcEnv)中检索Master的EndpointRef
                   val masterEndpoint = rpcEnv.setupEndpointRef(masterAddress, Master.ENDPOINT_NAME)
+                  //注册Worker
                   registerWithMaster(masterEndpoint)
                 } catch {
                   case ie: InterruptedException => // Cancelled
@@ -357,7 +359,7 @@ private[deploy] class Worker(
     registrationRetryTimer = None
   }
 
-  //TODO  应该在断开重新连接时候调用
+
   private def registerWithMaster() {
     // onDisconnected may be triggered multiple times, so don't attempt registration
     // if there are outstanding registration attempts scheduled.
@@ -747,6 +749,7 @@ private[deploy] object Worker extends Logging {
     Utils.initDaemon(log)
     val conf = new SparkConf
     val args = new WorkerArguments(argStrings, conf)//masterUrl是在java -cp启动worker时候传入的
+    //向rpcEnv注册
     val rpcEnv = startRpcEnvAndEndpoint(args.host, args.port, args.webUiPort, args.cores, args.memory, args.masters, args.workDir, conf = conf)
     rpcEnv.awaitTermination()
   }
@@ -769,7 +772,7 @@ private[deploy] object Worker extends Logging {
     //创建一个Worker的RpcEnv环境
     val rpcEnv = RpcEnv.create(systemName, host, port, conf, securityMgr)
     val masterAddresses = masterUrls.map(RpcAddress.fromSparkURL(_))
-
+    //在Worker的构造器中向Master注册
     rpcEnv.setupEndpoint(ENDPOINT_NAME, new Worker(rpcEnv, webUiPort, cores, memory, masterAddresses, ENDPOINT_NAME, workDir, conf, securityMgr))
     rpcEnv
   }

@@ -27,7 +27,8 @@ import org.apache.spark.util.{ThreadUtils, Utils}
 
 /**
  * An RpcEndpoint to take commands from the master to execute options. For example,
- * this is used to remove blocks from the slave's BlockManager.
+ * this is used to remove blocks from the slave's BlockManager.<br><br>
+  *
  */
 private[storage]
 class BlockManagerSlaveEndpoint(

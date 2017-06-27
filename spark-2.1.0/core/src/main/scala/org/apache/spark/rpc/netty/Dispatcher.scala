@@ -56,7 +56,7 @@ private[netty] class Dispatcher(nettyEnv: NettyRpcEnv) extends Logging {
   private val endpoints: ConcurrentMap[String, EndpointData] = new ConcurrentHashMap[String, EndpointData]
 
   /**
-    * endpointRefs: ConcurrentMap[RpcEndpoint, RpcEndpointRef]
+    * RpcEndpoint与RpcEndpointRef的Map映射
     */
   private val endpointRefs: ConcurrentMap[RpcEndpoint, RpcEndpointRef] = new ConcurrentHashMap[RpcEndpoint, RpcEndpointRef]
 
@@ -228,6 +228,7 @@ private[netty] class Dispatcher(nettyEnv: NettyRpcEnv) extends Logging {
       try {
         while (true) {
           try {
+            //TODO 阻塞，知道Endpoint注册完毕才会向下执行
             val data = receivers.take()
             if (data == PoisonPill) {
               // Put PoisonPill back so that other MessageLoops can see it.
@@ -250,7 +251,7 @@ private[netty] class Dispatcher(nettyEnv: NettyRpcEnv) extends Logging {
 
   /**
     * A poison endpoint that indicates MessageLoop should exit its message loop.<br><br>
-    *   控制Dispather退出消息循环的消息
+    * 控制Dispather退出消息循环的消息
     *
     */
   private val PoisonPill = new EndpointData(null, null, null)

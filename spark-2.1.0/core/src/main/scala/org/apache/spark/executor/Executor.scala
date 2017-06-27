@@ -41,18 +41,22 @@ import org.apache.spark.util._
 import org.apache.spark.util.io.ChunkedByteBuffer
 
 /**
- * Spark executor, backed by a threadpool to run tasks.
- *
- * This can be used with Mesos, YARN, and the standalone scheduler.
- * An internal RPC interface is used for communication with the driver,
- * except in the case of Mesos fine-grained mode.
- */
+  * Spark executor, backed by a threadpool to run tasks.
+  *
+  * This can be used with Mesos, YARN, and the standalone scheduler.
+  * An internal RPC interface is used for communication with the driver,
+  * except in the case of Mesos fine-grained mode.
+  * <br><br>
+  * Spark的executor，实现使用的java的线程池(newCachedThreadPool)执行tasks
+  *
+  *
+  */
 private[spark] class Executor(
-    executorId: String,
-    executorHostname: String,
-    env: SparkEnv,
-    userClassPath: Seq[URL] = Nil,
-    isLocal: Boolean = false) extends Logging {
+                               executorId: String,
+                               executorHostname: String,
+                               env: SparkEnv,
+                               userClassPath: Seq[URL] = Nil,
+                               isLocal: Boolean = false) extends Logging {
 
   logInfo(s"Starting executor ID $executorId on host $executorHostname")
 
@@ -68,7 +72,7 @@ private[spark] class Executor(
   // No ip or host:port - just hostname
   Utils.checkHost(executorHostname, "Expected executed slave to be a hostname")
   // must not have port specified.
-  assert (0 == Utils.parseHostPort(executorHostname)._2)
+  assert(0 == Utils.parseHostPort(executorHostname)._2)
 
   // Make sure the local hostname we report matches the cluster scheduler's name for this host
   Utils.setCustomHostname(executorHostname)
@@ -81,7 +85,7 @@ private[spark] class Executor(
   }
 
   /**
-    *Start worker thread pool <br>
+    * Start worker thread pool <br>
     * ThreadPoolExecutor
     */
   private val threadPool = ThreadUtils.newDaemonCachedThreadPool("Executor task launch worker")
@@ -112,7 +116,12 @@ private[spark] class Executor(
   // Limit of bytes for total size of results (default is 1GB)
   private val maxResultSize = Utils.getMaxResultSize(conf)
 
-  // Maintains the list of running tasks.
+
+  /**
+    * runningTasks = new ConcurrentHashMap[Long, TaskRunner]
+    * <br><br>
+    * Maintains the list of running tasks.
+    */
   private val runningTasks = new ConcurrentHashMap[Long, TaskRunner]
 
   // Executor for the heartbeat task.
@@ -123,26 +132,26 @@ private[spark] class Executor(
     RpcUtils.makeDriverRef(HeartbeatReceiver.ENDPOINT_NAME, conf, env.rpcEnv)
 
   /**
-   * When an executor is unable to send heartbeats to the driver more than `HEARTBEAT_MAX_FAILURES`
-   * times, it should kill itself. The default value is 60. It means we will retry to send
-   * heartbeats about 10 minutes because the heartbeat interval is 10s.
-   */
+    * When an executor is unable to send heartbeats to the driver more than `HEARTBEAT_MAX_FAILURES`
+    * times, it should kill itself. The default value is 60. It means we will retry to send
+    * heartbeats about 10 minutes because the heartbeat interval is 10s.
+    */
   private val HEARTBEAT_MAX_FAILURES = conf.getInt("spark.executor.heartbeat.maxFailures", 60)
 
   /**
-   * Count the failure times of heartbeat. It should only be accessed in the heartbeat thread. Each
-   * successful heartbeat will reset it to 0.
-   */
+    * Count the failure times of heartbeat. It should only be accessed in the heartbeat thread. Each
+    * successful heartbeat will reset it to 0.
+    */
   private var heartbeatFailures = 0
 
   startDriverHeartbeater()
 
   def launchTask(
-      context: ExecutorBackend,
-      taskId: Long,
-      attemptNumber: Int,
-      taskName: String,
-      serializedTask: ByteBuffer): Unit = {
+                  context: ExecutorBackend,
+                  taskId: Long,
+                  attemptNumber: Int,
+                  taskName: String,
+                  serializedTask: ByteBuffer): Unit = {
     //TODO TaskRunner 是一个实现Runnable的执行单位
     val tr = new TaskRunner(context, taskId = taskId, attemptNumber = attemptNumber, taskName,
       serializedTask)
@@ -159,12 +168,13 @@ private[spark] class Executor(
   }
 
   /**
-   * Function to kill the running tasks in an executor.
-   * This can be called by executor back-ends to kill the
-   * tasks instead of taking the JVM down.
-   * @param interruptThread whether to interrupt the task thread
-   */
-  def killAllTasks(interruptThread: Boolean) : Unit = {
+    * Function to kill the running tasks in an executor.
+    * This can be called by executor back-ends to kill the
+    * tasks instead of taking the JVM down.
+    *
+    * @param interruptThread whether to interrupt the task thread
+    */
+  def killAllTasks(interruptThread: Boolean): Unit = {
     // kill all the running tasks
     for (taskRunner <- runningTasks.values().asScala) {
       if (taskRunner != null) {
@@ -189,11 +199,11 @@ private[spark] class Executor(
   }
 
   class TaskRunner(
-      execBackend: ExecutorBackend,
-      val taskId: Long,
-      val attemptNumber: Int,
-      taskName: String,
-      serializedTask: ByteBuffer)
+                    execBackend: ExecutorBackend,
+                    val taskId: Long,
+                    val attemptNumber: Int,
+                    taskName: String,
+                    serializedTask: ByteBuffer)
     extends Runnable {
 
     /** Whether this task has been killed. */
@@ -207,9 +217,9 @@ private[spark] class Executor(
     @volatile var startGCTime: Long = _
 
     /**
-     * The task to run. This will be set in run() by deserializing the task binary coming
-     * from the driver. Once it is set, it will never be changed.
-     */
+      * The task to run. This will be set in run() by deserializing the task binary coming
+      * from the driver. Once it is set, it will never be changed.
+      */
     @volatile var task: Task[Any] = _
 
     def kill(interruptThread: Boolean): Unit = {
@@ -225,8 +235,8 @@ private[spark] class Executor(
     }
 
     /**
-     * Set the finished flag to true and clear the current thread's interrupt status
-     */
+      * Set the finished flag to true and clear the current thread's interrupt status
+      */
     private def setTaskFinishedAndClearInterruptStatus(): Unit = synchronized {
       this.finished = true
       // SPARK-14234 - Reset the interrupted status of the thread to avoid the
@@ -436,9 +446,9 @@ private[spark] class Executor(
   }
 
   /**
-   * Create a ClassLoader for use in tasks, adding any JARs specified by the user or any classes
-   * created by the interpreter to the search path
-   */
+    * Create a ClassLoader for use in tasks, adding any JARs specified by the user or any classes
+    * created by the interpreter to the search path
+    */
   private def createClassLoader(): MutableURLClassLoader = {
     // Bootstrap the list of jars with the user class path.
     val now = System.currentTimeMillis()
@@ -461,9 +471,9 @@ private[spark] class Executor(
   }
 
   /**
-   * If the REPL is in use, add another ClassLoader that will read
-   * new classes defined by the REPL as the user types code
-   */
+    * If the REPL is in use, add another ClassLoader that will read
+    * new classes defined by the REPL as the user types code
+    */
   private def addReplClassLoaderIfNeeded(parent: ClassLoader): ClassLoader = {
     val classUri = conf.get("spark.repl.class.uri", null)
     if (classUri != null) {
@@ -487,9 +497,9 @@ private[spark] class Executor(
   }
 
   /**
-   * Download any missing dependencies if we receive a new set of files and JARs from the
-   * SparkContext. Also adds any new JARs we fetched to the class loader.
-   */
+    * Download any missing dependencies if we receive a new set of files and JARs from the
+    * SparkContext. Also adds any new JARs we fetched to the class loader.
+    */
   private def updateDependencies(newFiles: HashMap[String, Long], newJars: HashMap[String, Long]) {
     lazy val hadoopConf = SparkHadoopUtil.get.newConfiguration(conf)
     synchronized {
@@ -540,7 +550,7 @@ private[spark] class Executor(
     val message = Heartbeat(executorId, accumUpdates.toArray, env.blockManager.blockManagerId)
     try {
       val response = heartbeatReceiverRef.askWithRetry[HeartbeatResponse](
-          message, RpcTimeout(conf, "spark.executor.heartbeatInterval", "10s"))
+        message, RpcTimeout(conf, "spark.executor.heartbeatInterval", "10s"))
       if (response.reregisterBlockManager) {
         logInfo("Told to re-register on heartbeat")
         env.blockManager.reregister()
@@ -559,8 +569,8 @@ private[spark] class Executor(
   }
 
   /**
-   * Schedules a task to report heartbeat and partial metrics for active tasks to driver.
-   */
+    * Schedules a task to report heartbeat and partial metrics for active tasks to driver.
+    */
   private def startDriverHeartbeater(): Unit = {
     val intervalMs = conf.getTimeAsMs("spark.executor.heartbeatInterval", "10s")
 

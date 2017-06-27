@@ -35,7 +35,8 @@ import org.apache.spark.util.RpcUtils
 private[spark] object RpcEnv {
 
   /**
-    *在Master、Worker启动时候会调用这个函数
+    * 在Master、Worker启动时候会调用这个函数
+    *
     * @param name
     * @param host
     * @param port
@@ -80,6 +81,16 @@ private[spark] object RpcEnv {
   * RpcEnv是一个RPC环境，需要将RpcEndpoint注册到RpcEnv上，目的是接受消息。RpcEnv负责处理RpcEndpointRef的消息或者是远端节点的消息，
   * 转发消息到对应的RpcEndpoint上，对于没有捕获的异常使用RpcCallContext.sendFailure发送回给发送者，如果没有该sender的话会日志记录
   *
+  *<br>-------------------------------------------------------------------------------------------------------------------<br>
+  * 一个RpcEnv是一个RPC环境对象，它负责管理RpcEndpoint的注册，以及如何从一个RpcEndpoint获取到一个RpcEndpointRef。
+  * RpcEndpoint是一个通信端，例如Spark集群中的Master，或Worker，都是一个RpcEndpoint。但是，如果想要与一个RpcEndpoint端进行通信，
+  * 一定需要获取到该RpcEndpoint一个RpcEndpointRef，而获取该RpcEndpointRef只能通过一个RpcEnv环境对象来获取。所以说，
+  * 一个RpcEnv对象才是RPC通信过程中的“指挥官”，在RpcEnv类中，有一个核心的方法：
+  * def setupEndpoint(name: String, endpoint: RpcEndpoint): RpcEndpointRef
+  * 通过上面方法，可以注册一个RpcEndpoint到RpcEnv环境对象中，有RpcEnv来管理RpcEndpoint到RpcEndpointRef的绑定关系。
+  * 在注册RpcEndpoint时，每个RpcEndpoint都需要有一个唯一的名称。
+  *
+  * @param conf
   */
 private[spark] abstract class RpcEnv(conf: SparkConf) {
 
