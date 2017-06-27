@@ -41,8 +41,9 @@ import org.apache.spark.serializer.{JavaSerializer, JavaSerializerInstance}
 import org.apache.spark.util.{ThreadUtils, Utils}
 
 /**
-  * 类似于Akka的ActorSystem，持有所有endpoint的引用的大环境（endpoint类似于Akka的actor，EndpointRef类似于ActorRef ）
-  *
+  * 类似于Akka的ActorSystem，持有所有endpoint的引用的环境
+  * endpoint类似于Akka的actor
+  * EndpointRef类似于ActorRef ）
   * @param conf
   * @param javaSerializerInstance
   * @param host

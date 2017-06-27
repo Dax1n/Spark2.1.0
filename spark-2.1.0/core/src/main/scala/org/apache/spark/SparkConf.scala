@@ -46,7 +46,7 @@ import org.apache.spark.util.Utils
   * @note Once a SparkConf object is passed to Spark, it is cloned and can no longer be modified
   *       by the user. Spark does not support modifying the configuration at runtime.
   *       <br><br><br><br>
-  *       SparkConf有参数构造器可以指定是否加载默认的Spark属性
+  *       SparkConf有参数构造器可以指定是否加载默认的Spark属性<br><br><br><br>对于提交的作业如果是没有指定内存和cou分配的话，则使用默认的参数
   *
   *
   */

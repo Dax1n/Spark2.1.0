@@ -138,6 +138,7 @@ private[spark] class TaskSchedulerImpl(
     this.dagScheduler = dagScheduler
   }
 
+  //TODO  这个方法在SparkContext中调用createTaskScheduler创建TaskScheduler时候被调用
   def initialize(backend: SchedulerBackend) {
     this.backend = backend
     // temporarily set rootPool name to empty
@@ -162,7 +163,8 @@ private[spark] class TaskSchedulerImpl(
     * 方法体内判断是否推测执行
     */
   override def start() {
-    backend.start()
+    //TODO backend是CoarseGrainedSchedulerBackend是SchedulerBackend的一种实现
+    backend.start() //主要完成的是Driver的ref创建
 
     if (!isLocal && conf.getBoolean("spark.speculation", false)) {
       logInfo("Starting speculative execution thread")
@@ -206,12 +208,16 @@ private[spark] class TaskSchedulerImpl(
           }")
       }
 
+      //TODO schedulableBuilder的一种实现FIFOSchedulableBuilder
       schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
 
-      if (!isLocal && !hasReceivedTask) { // 不是本地任务并且任务还没有接受
-        starvationTimer.scheduleAtFixedRate(new TimerTask() { // java.util.TimerTask一个实现Runnable接口的抽象类
+      if (!isLocal && !hasReceivedTask) {
+        // 不是本地任务并且任务还没有接受
+        starvationTimer.scheduleAtFixedRate(new TimerTask() {
+          // java.util.TimerTask一个实现Runnable接口的抽象类
           override def run() {
-            if (!hasLaunchedTask) { //TODO 判断其否启动Task，分配资源成功之后如果启动任务成功则设置为hasLaunchedTask=true
+            if (!hasLaunchedTask) {
+              //TODO 判断其否启动Task，分配资源成功之后如果启动任务成功则设置为hasLaunchedTask=true
               logWarning("Initial job has not accepted any resources; " +
                 "check your cluster UI to ensure that workers are registered " + "and have sufficient resources")
             } else {
@@ -219,11 +225,11 @@ private[spark] class TaskSchedulerImpl(
             }
           }
         }, STARVATION_TIMEOUT_MS, STARVATION_TIMEOUT_MS) //第一个参数，任务，第二个参数 延迟时间，循环调度间隔
-      }
-      hasReceivedTask = true  //TODO 设置任务已经提交被接受
+      } //TODO 这是一个定时任务，启动之后15之后开始运行
+      hasReceivedTask = true //TODO 设置任务已经提交被接受
     }
 
-
+    //TODO CoarseGrainedSchedulerBackend是 backend：SchedulerBackend的一种实现
     backend.reviveOffers() //SchedulerBackend负责申请资源和Task执行和管理
   }
 
@@ -271,6 +277,17 @@ private[spark] class TaskSchedulerImpl(
       s" ${manager.parent.name}")
   }
 
+  /**
+    *
+    * 负责Task运行节点的选择<br><br><br><br>
+    *每一个worker的"可用的cpu数"组成的数组，availableCpus和上一行的tasks的worker信息一一对应
+    * @param taskSet
+    * @param maxLocality
+    * @param shuffledOffers 所有可用的资源(打散)
+    * @param availableCpus 每一个worker的"可用的cpu数"组成的数组和tasks的worker信息一一对应
+    * @param tasks 中的每一个数组大小的就是该worker的可用cpu的cores数
+    * @return
+    */
   private def resourceOfferSingleTaskSet(
                                           taskSet: TaskSetManager,
                                           maxLocality: TaskLocality,
@@ -278,10 +295,10 @@ private[spark] class TaskSchedulerImpl(
                                           availableCpus: Array[Int],
                                           tasks: IndexedSeq[ArrayBuffer[TaskDescription]]): Boolean = {
     var launchedTask = false
-    for (i <- 0 until shuffledOffers.size) {
+    for (i <- 0 until shuffledOffers.size) { //TODO shuffledOffers可用资源进行遍历
       val execId = shuffledOffers(i).executorId
       val host = shuffledOffers(i).host
-      if (availableCpus(i) >= CPUS_PER_TASK) {
+      if (availableCpus(i) >= CPUS_PER_TASK) { //每一个Task需要的cpu核心数
         try {
           for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {
             tasks(i) += task
@@ -306,16 +323,20 @@ private[spark] class TaskSchedulerImpl(
   }
 
   /**
+    * /**
     * Called by cluster manager to offer resources on slaves. We respond by asking our active task
     * sets for tasks in order of priority. We fill each node with tasks in a round-robin manner so
     * that tasks are balanced across the cluster.<br><br>
-    *
-    *
+    * 集群管理器调度分配资源
+
+    */
+    * @param offers所有可用资源
+    * @return
     */
   def resourceOffers(offers: IndexedSeq[WorkerOffer]): Seq[Seq[TaskDescription]] = synchronized {
     // Mark each slave as alive and remember its hostname
     // Also track if new executor is added
-    var newExecAvail = false
+    var newExecAvail = false // 处理新的executor加入
     for (o <- offers) {
       if (!hostToExecutors.contains(o.host)) {
         hostToExecutors(o.host) = new HashSet[String]()
@@ -333,9 +354,12 @@ private[spark] class TaskSchedulerImpl(
     }
 
     // Randomly shuffle offers to avoid always placing tasks on the same set of workers.
-    val shuffledOffers = Random.shuffle(offers)
+    //TODO 打散Worker的资源分配，避免所有的任务都集中分配在某一些Worker上
+    val shuffledOffers = Random.shuffle(offers) //shuffledOffers：IndexedSeq[WorkerOffer]
     // Build a list of tasks to assign to each worker.
-    val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores))
+    //TODO tasks: IndexedSeq[ArrayBuffer[TaskDescription]],ArrayBuffer的大小是Worker可用的cores
+    val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores)) //o.cores表示可以使用的cpu core数
+    //每一个worker的"可用的cpu数"组成的数组，availableCpus和上一行的tasks的worker信息一一对应
     val availableCpus = shuffledOffers.map(o => o.cores).toArray
     val sortedTaskSets = rootPool.getSortedTaskSetQueue
     for (taskSet <- sortedTaskSets) {
@@ -350,12 +374,12 @@ private[spark] class TaskSchedulerImpl(
     // of locality levels so that it gets a chance to launch local tasks on all of them.
     // NOTE: the preferredLocality order: PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY
     for (taskSet <- sortedTaskSets) {
-      var launchedAnyTask = false
+      var launchedAnyTask = false  //按就近原则进行Task调度
       var launchedTaskAtCurrentMaxLocality = false
       for (currentMaxLocality <- taskSet.myLocalityLevels) {
         do {
-          launchedTaskAtCurrentMaxLocality = resourceOfferSingleTaskSet(
-            taskSet, currentMaxLocality, shuffledOffers, availableCpus, tasks)
+          launchedTaskAtCurrentMaxLocality =
+            resourceOfferSingleTaskSet(taskSet, currentMaxLocality, shuffledOffers, availableCpus, tasks) //TODO 重点方法 resourceOfferSingleTaskSet 负责Task运行节点选择
           launchedAnyTask |= launchedTaskAtCurrentMaxLocality
         } while (launchedTaskAtCurrentMaxLocality)
       }

@@ -31,8 +31,8 @@ import org.apache.spark.util.AccumulatorV2
   * DAGScheduler.
   * <br><br>
   * 低级的调度器接口，目前特定实现了TaskSchedulerImpl，这个接口允许插入使用不同的task调度器<br>
-  *   每一个TaskScheduler为一个SparkContext调度tasks，这些task调度器能获取到DAGScheduler向自己提交的任务(stage)
-  *   <br>然后这些task调度器负责将task发到集群中，并运行他们，如果失败了负责重启。返回事件给DAGScheduler
+  * 每一个TaskScheduler为一个SparkContext调度tasks，这些task调度器能获取到DAGScheduler向自己提交的任务(stage)
+  * <br>然后这些task调度器负责将task发到集群中，并运行他们，如果失败了负责重启。返回事件给DAGScheduler
   *
   *
   */
@@ -57,6 +57,7 @@ private[spark] trait TaskScheduler {
   /**
     *
     * Submit a sequence of tasks to run.<br>提交任务集合去运行<br>
+    *
     * @param taskSet
     */
   def submitTasks(taskSet: TaskSet): Unit

@@ -72,6 +72,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   // must be protected by `CoarseGrainedSchedulerBackend.this`. Besides, `executorDataMap` should
   // only be modified in `DriverEndpoint.receive/receiveAndReply` with protection by
   // `CoarseGrainedSchedulerBackend.this`.
+  /**
+    * val executorDataMap = new HashMap[String, ExecutorData]
+    */
   private val executorDataMap = new HashMap[String, ExecutorData]
 
   // Number of executors requested from the cluster manager that have not registered yet
@@ -99,9 +102,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   // The num of current max ExecutorId used to re-register appMaster
   @volatile protected var currentExecutorIdCounter = 0
 
+
   /**
-    * Driver的一个引用
-    *
+    * org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend.DriverEndpoint
     * @param rpcEnv
     * @param sparkProperties
     */
@@ -228,15 +231,16 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     /**
       * Make fake resource offers on all executors
       * <br>给所有的executor分配资源<br>
+      * org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend.DriverEndpoint#makeOffers(java.lang.String)
       */
-    private def makeOffers() {
+    private def makeOffers() { //当前类是DriverEndpoint
       // Filter out executors under killing
       val activeExecutors = executorDataMap.filterKeys(executorIsAlive)
-
-      val workOffers = activeExecutors.map { case (id, executorData) => //获取executor的可用资源
+      //TODO 所有executor的可用资源
+      val workOffers = activeExecutors.map { case (id, executorData) =>
         new WorkerOffer(id, executorData.executorHost, executorData.freeCores)
       }.toIndexedSeq
-
+      //TODO scheduler为TaskSchedulerImpl
       launchTasks(scheduler.resourceOffers(workOffers))
     }
 
@@ -258,6 +262,8 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
         val executorData = executorDataMap(executorId)
         val workOffers = IndexedSeq(
           new WorkerOffer(executorId, executorData.executorHost, executorData.freeCores))
+        //TODO scheduler.resourceOffers(workOffers) 完成资源的分配，返回一个Seq[Seq[TaskDescription]]
+        //
         launchTasks(scheduler.resourceOffers(workOffers))
       }
     }
@@ -268,7 +274,8 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     }
 
     /**
-      * Launch tasks returned by a set of resource offers
+      * Launch tasks returned by a set of resource offers<br><br>
+      * org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend.DriverEndpoint#launchTasks(scala.collection.Seq)
       * @param tasks
       */
     private def launchTasks(tasks: Seq[Seq[TaskDescription]]) {
@@ -295,9 +302,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
             s"${executorData.executorHost}.")
 
           //TODO CoarseGrainedSchedulerBackend给CoarseGrainedExecutorBackend发送消息启动Task
-          executorData.executorEndpoint.send(LaunchTask(new SerializableBuffer(serializedTask)))
+          executorData.executorEndpoint.send(LaunchTask(new SerializableBuffer(serializedTask))) //循环遍历提交serializedTask序列化之后的任务
         }
-      }
+      } //TODO for循环结束
     } //launchTasks
 
     // Remove a disconnected slave from the cluster
@@ -366,6 +373,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
 
   protected def minRegisteredRatio: Double = _minRegisteredRatio
 
+  /**
+    * 主要完成的是Driver的ref创建
+    */
   override def start() {
     val properties = new ArrayBuffer[(String, String)]
     for ((key, value) <- scheduler.sc.conf.getAll) {
@@ -375,6 +385,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     }
 
     // TODO (prashant) send conf instead of properties
+    //TODO 创建Driver的引用
     driverEndpoint = createDriverEndpointRef(properties)
   }
 
@@ -433,6 +444,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     * 向Driver发消息申请资源
     */
   override def reviveOffers() {
+    //TODO driverEndpoint创建是在SparkContext中调用TaskScheduler.start()方法创建的
     driverEndpoint.send(ReviveOffers)
   }
 

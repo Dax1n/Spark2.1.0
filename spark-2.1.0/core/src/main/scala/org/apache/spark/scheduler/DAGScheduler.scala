@@ -1126,8 +1126,8 @@ private[spark] class DAGScheduler(
         case stage: ResultStage =>
           JavaUtils.bufferToArray(closureSerializer.serialize((stage.rdd, stage.func): AnyRef))
       }
-
-      taskBinary = sc.broadcast(taskBinaryBytes) //广播出去
+      //TODO Stage信息是通过广播出去的
+      taskBinary = sc.broadcast(taskBinaryBytes)
     } catch {
       // In the case of a failure during serialization, abort the stage.
       case e: NotSerializableException =>

@@ -38,7 +38,7 @@ import org.apache.spark.util.{AccumulatorV2, Clock, SystemClock, Utils}
  * handles locality-aware scheduling for this TaskSet via delay scheduling. The main interfaces
  * to it are resourceOffer, which asks the TaskSet whether it wants to run a task on one node,
  * and statusUpdate, which tells it that one of its tasks changed state (e.g. finished).
- *
+ *<br><br><br><br>
  * THREADING: This class is designed to only be called from code with a lock on the
  * TaskScheduler (e.g. its event handlers). It should not be called from other threads.
  *

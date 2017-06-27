@@ -487,6 +487,7 @@ class SparkContext(config: SparkConf) extends Logging {
     listenerBus.addListener(jobProgressListener)
 
     // Create the Spark execution environment (cache, map output tracker, etc)
+    //TODO SparkEnv其实就是Driver的RpcEnv环境，_conf是conf的一个副本，其中包含一些列的参数
     _env = createSparkEnv(_conf, isLocal, listenerBus) //TODO _env 初始化
     SparkEnv.set(_env)
 
@@ -556,7 +557,7 @@ class SparkContext(config: SparkConf) extends Logging {
 
     // Create and start the scheduler
     //TODO 传说中的TaskScheduler创建
-    //TODO 先创建TaskScheduler原因：DAGScheduler的构造参数需要taskScheduler成员
+    //TODO 先创建TaskScheduler原因：DAGScheduler的构造参数需要taskScheduler成员(taskScheduler完成的initialize方法调用)
     val (sched, ts) = SparkContext.createTaskScheduler(this, master, deployMode)
     _schedulerBackend = sched
     _taskScheduler = ts
@@ -568,8 +569,8 @@ class SparkContext(config: SparkConf) extends Logging {
     /**
       * 很重要：SparkContext是Spark提交任务到集群的入口
       * 我们看一下SparkContext的主构造器
-      * 1.调用createSparkEnv方法创建SparkEnv
-      * 2.创建TaskScheduler -> 根据提交任务的URL进行匹配 -> TaskSchedulerImpl -> SparkDeploySchedulerBackend(里面有两个Actor)
+      * 1.调用createSparkEnv方法创建SparkEnv(其实就是Driver的RpcEnv)
+      * 2.创建TaskScheduler -> 根据提交任务的URL进行匹配 -> TaskSchedulerImpl -> SparkDeploySchedulerBackend
       * 3.创建DAGScheduler
       * 4.taskScheduler.start()
       */
@@ -2629,6 +2630,7 @@ object SparkContext extends Logging {
         scheduler.initialize(backend)
         (backend, scheduler)
 
+        //TODO Standalone模式的时候，使用StandaloneSchedulerBackend
       case SPARK_REGEX(sparkUrl) =>
         val scheduler = new TaskSchedulerImpl(sc)
         val masterUrls = sparkUrl.split(",").map("spark://" + _)
@@ -2673,7 +2675,6 @@ object SparkContext extends Logging {
         }
     }
   }
-
   private def getClusterManager(url: String): Option[ExternalClusterManager] = {
     val loader = Utils.getContextOrSparkClassLoader
     val serviceLoaders =

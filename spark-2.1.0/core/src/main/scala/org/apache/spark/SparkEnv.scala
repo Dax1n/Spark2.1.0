@@ -316,9 +316,11 @@ object SparkEnv extends Logging {
 
     val broadcastManager = new BroadcastManager(isDriver, conf, securityManager)
 
+    //如果是driver的话，创建MapOutputTrackerMaster
     val mapOutputTracker = if (isDriver) {
       new MapOutputTrackerMaster(conf, broadcastManager, isLocal)
     } else {
+      //如果不是driver的话则创建MapOutputTrackerWorker
       new MapOutputTrackerWorker(conf)
     }
 
