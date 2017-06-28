@@ -112,9 +112,9 @@ class SparkContext(config: SparkConf) extends Logging {
             |This stopped SparkContext was created at:
             |
            |${creationSite.longForm}
-            |
+           |
            |The currently active SparkContext was created at:
-            |
+           |
            |$activeCreationSite
          """.stripMargin)
     }
@@ -2662,13 +2662,14 @@ object SparkContext extends Logging {
       //TODO master url最后一个分支
       case masterUrl =>
         //TODO YarnClusterManager extends ExternalClusterManager，如果是在Yarn模式下的话集群管理器是YarnClusterManager
-        val cm = getClusterManager(masterUrl) match {  //cm: ExternalClusterManager =...
+        val cm = getClusterManager(masterUrl) match {
+          //cm: ExternalClusterManager =...
           case Some(clusterMgr) => clusterMgr
           case None => throw new SparkException("Could not parse Master URL: '" + master + "'")
         }
         try {
-          val scheduler = cm.createTaskScheduler(sc, masterUrl)
-          //TODO 创建SchedulerBackend
+          val scheduler = cm.createTaskScheduler(sc, masterUrl) //Yarn模式使用的也是 TaskSchedulerImpl
+          //TODO Yarn模式下 SchedulerBackend的实现子类是YarnClusterSchedulerBackend
           val backend = cm.createSchedulerBackend(sc, masterUrl, scheduler)
           cm.initialize(scheduler, backend)
           (backend, scheduler)
