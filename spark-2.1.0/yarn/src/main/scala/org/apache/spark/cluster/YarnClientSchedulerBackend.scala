@@ -27,6 +27,11 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.launcher.SparkAppHandle
 import org.apache.spark.scheduler.TaskSchedulerImpl
 
+/**
+  *  yarn 客户端模式提交作业的，YarnClientSchedulerBackend
+  * @param scheduler
+  * @param sc
+  */
 private[spark] class YarnClientSchedulerBackend(
     scheduler: TaskSchedulerImpl,
     sc: SparkContext)

@@ -24,6 +24,10 @@ import org.apache.spark._
 import org.apache.spark.scheduler.TaskSchedulerImpl
 import org.apache.spark.util.Utils
 
+/**
+  * Spark on yarn 的客户端提交模式(client)一种实现<br><br>继承至TaskSchedulerImpl
+  * @param sc
+  */
 private[spark] class YarnScheduler(sc: SparkContext) extends TaskSchedulerImpl(sc) {
 
   // RackResolver logs an INFO message whenever it resolves a rack, which is way too often.

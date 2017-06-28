@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.spark.deploy.yarn
+package org.apache.spark.deploy
 
 import java.util.concurrent.TimeUnit
 
 import org.apache.spark.internal.config.ConfigBuilder
 import org.apache.spark.network.util.ByteUnit
 
-package object config {
+package object yarn {
 
   /* Common app configuration. */
 

@@ -25,9 +25,17 @@ import org.apache.spark.deploy.yarn.{ApplicationMaster, YarnSparkHadoopUtil}
 import org.apache.spark.scheduler.TaskSchedulerImpl
 import org.apache.spark.util.Utils
 
+/**
+  *yarn集群模式提交作业的YarnClusterSchedulerBackend<br><br>
+  * YarnSchedulerBackend extends CoarseGrainedSchedulerBackend
+  * <br><br>
+  *
+  * @param scheduler
+  * @param sc
+  */
 private[spark] class YarnClusterSchedulerBackend(
-    scheduler: TaskSchedulerImpl,
-    sc: SparkContext)
+                                                  scheduler: TaskSchedulerImpl,
+                                                  sc: SparkContext)
   extends YarnSchedulerBackend(scheduler, sc) {
 
   override def start() {

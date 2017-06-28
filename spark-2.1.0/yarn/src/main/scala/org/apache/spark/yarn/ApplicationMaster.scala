@@ -46,7 +46,8 @@ import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.util._
 
 /**
- * Common application master functionality for Spark on Yarn.
+ * Common application master functionality for Spark on Yarn.<br><br>
+  *   对于Spark On yarn 模式的application master
  */
 private[spark] class ApplicationMaster(
     args: ApplicationMasterArguments,
@@ -322,6 +323,11 @@ private[spark] class ApplicationMaster(
     }
   }
 
+  /**
+    *
+    * @param sc
+    * @return
+    */
   private def sparkContextInitialized(sc: SparkContext) = {
     sparkContextPromise.success(sc)
   }

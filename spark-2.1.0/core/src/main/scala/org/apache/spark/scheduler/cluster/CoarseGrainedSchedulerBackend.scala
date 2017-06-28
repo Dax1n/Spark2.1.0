@@ -41,11 +41,10 @@ import org.apache.spark.util.{RpcUtils, SerializableBuffer, ThreadUtils, Utils}
   * coarse-grained Mesos mode or standalone processes for Spark's standalone deploy mode
   * (spark.deploy.*).<br><br>
   *
-  * CoarseGrainedSchedulerBackend等待一个粗粒度的执行器来连接。这个backend在整个Spark job期间保持每一个执行器。
-  * 而不是当任务运行完之后就丢弃执行器，等运行新任务的时候再申请新的执行器。 执行器可以以不同的方式启动，
-  * 如粗粒度的Mesos模式下的Mesos任务，和Spark独立模式下的独立进程。
-  *<br><br><br><br>
-  *   在Yarn模式下此CoarseGrainedSchedulerBackend的实现为YarnSchedulerBackend，是spark下的一个yarn模块
+  * CoarseGrainedSchedulerBackend是一个粗粒度的集群管理器，在不同实现下有各自的实现
+  * <br><br><br><br>
+  * 在Yarn模式下此CoarseGrainedSchedulerBackend的实现为YarnSchedulerBackend，是spark下的一个yarn模块
+  * <br><br>在Spark standalone模式下具体实现为：StandaloneSchedulerBackend
   *
   */
 private[spark]
@@ -106,6 +105,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
 
   /**
     * org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend.DriverEndpoint
+    *
     * @param rpcEnv
     * @param sparkProperties
     */
@@ -234,7 +234,8 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
       * <br>给所有的executor分配资源<br>
       * org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend.DriverEndpoint#makeOffers(java.lang.String)
       */
-    private def makeOffers() { //当前类是DriverEndpoint
+    private def makeOffers() {
+      //当前类是DriverEndpoint
       // Filter out executors under killing
       val activeExecutors = executorDataMap.filterKeys(executorIsAlive)
       //TODO 所有executor的可用资源
@@ -255,6 +256,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
 
     /**
       * Make fake resource offers on just one executor
+      *
       * @param executorId
       */
     private def makeOffers(executorId: String) {
@@ -277,19 +279,21 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     /**
       * Launch tasks returned by a set of resource offers<br><br>
       * org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend.DriverEndpoint#launchTasks(scala.collection.Seq)
+      *
       * @param tasks
       */
     private def launchTasks(tasks: Seq[Seq[TaskDescription]]) {
       for (task <- tasks.flatten) {
         val serializedTask = ser.serialize(task) //TODO Task序列化之后的数据
-        if (serializedTask.limit >= maxRpcMessageSize) { //序列化之后的数据操作大小，将会终止任务
+        if (serializedTask.limit >= maxRpcMessageSize) {
+          //序列化之后的数据操作大小，将会终止任务
           scheduler.taskIdToTaskSetManager.get(task.taskId).foreach { taskSetMgr =>
             try {
               var msg = "Serialized task %s:%d was %d bytes, which exceeds max allowed: " +
                 "spark.rpc.message.maxSize (%d bytes). Consider increasing " +
                 "spark.rpc.message.maxSize or using broadcast variables for large values."
               msg = msg.format(task.taskId, task.index, serializedTask.limit, maxRpcMessageSize)
-              taskSetMgr.abort(msg)  //设置Task为失败
+              taskSetMgr.abort(msg) //设置Task为失败
             } catch {
               case e: Exception => logError("Exception in error callback", e)
             }
