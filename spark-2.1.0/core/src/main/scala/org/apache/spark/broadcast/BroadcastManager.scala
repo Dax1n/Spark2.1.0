@@ -24,18 +24,33 @@ import scala.reflect.ClassTag
 import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.internal.Logging
 
+/**
+  *
+  * initialize()初始化方法中，TorrentBroadcastFactory初始化成员broadcastFactory
+  *
+  * @param isDriver
+  * @param conf
+  * @param securityManager
+  */
 private[spark] class BroadcastManager(
-    val isDriver: Boolean,
-    conf: SparkConf,
-    securityManager: SecurityManager)
+                                       val isDriver: Boolean,
+                                       conf: SparkConf,
+                                       securityManager: SecurityManager)
   extends Logging {
 
   private var initialized = false
+  /**
+    * broadcastFactory类型 TorrentBroadcastFactory
+    */
   private var broadcastFactory: BroadcastFactory = null
 
   initialize()
 
-  // Called by SparkContext or Executor before using Broadcast
+  /**
+    * Called by SparkContext or Executor before using Broadcast
+    * <br><br>
+    * TorrentBroadcastFactory目前是BroadcastFactory唯一实现
+    */
   private def initialize() {
     synchronized {
       if (!initialized) {

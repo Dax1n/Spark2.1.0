@@ -23,7 +23,6 @@ import java.net.{URI}
 import java.util.{Arrays, Locale, Properties, ServiceLoader, UUID}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
-
 import scala.collection.JavaConverters._
 import scala.collection.Map
 import scala.collection.generic.Growable
@@ -206,7 +205,7 @@ class SparkContext(config: SparkConf) extends Logging {
   private var _eventLogDir: Option[URI] = None
   private var _eventLogCodec: Option[String] = None
   /**
-    * SparkEnv成员
+    * SparkEnv,Holds all the runtime environment objects for a running Spark instance
     */
   private var _env: SparkEnv = _
   private var _jobProgressListener: JobProgressListener = _
@@ -218,14 +217,17 @@ class SparkContext(config: SparkConf) extends Logging {
     * 配置中获取
     */
   private var _executorMemory: Int = _
+  /**
+    *_schedulerBackend is a cluster manager ，holded by taskscheduler .
+    */
   private var _schedulerBackend: SchedulerBackend = _
   /**
-    * 传说中的：_taskScheduler声明
+    * taskScheduler，底层的task调度接口
     */
   private var _taskScheduler: TaskScheduler = _
   private var _heartbeatReceiver: RpcEndpointRef = _
   /**
-    * 传说中的：_dagScheduler声明
+    * dagScheduler主要负责切分stage的，决定每个Task的最佳位置等功能
     */
   @volatile private var _dagScheduler: DAGScheduler = _
   private var _applicationId: String = _
@@ -584,6 +586,7 @@ class SparkContext(config: SparkConf) extends Logging {
       System.setProperty("spark.ui.proxyBase", "/proxy/" + _applicationId)
     }
     _ui.foreach(_.setAppId(_applicationId))
+    //TODO 调用blockManager的initialize方法
     _env.blockManager.initialize(_applicationId)
 
     // The metrics system for Driver need to be set spark.app.id to app ID.
@@ -1478,11 +1481,11 @@ class SparkContext(config: SparkConf) extends Logging {
   def broadcast[T: ClassTag](value: T): Broadcast[T] = {
     assertNotStopped()
     require(!classOf[RDD[_]].isAssignableFrom(classTag[T].runtimeClass), "Can not directly broadcast RDDs; instead, call collect() and broadcast the result.")
-
+    //使用broadcastManager创建一个广播
     val bc = env.broadcastManager.newBroadcast[T](value, isLocal)
     val callSite = getCallSite
     logInfo("Created broadcast " + bc.id + " from " + callSite.shortForm)
-    cleaner.foreach(_.registerBroadcastForCleanup(bc)) //最后垃圾回收
+    cleaner.foreach(_.registerBroadcastForCleanup(bc)) //注册垃圾回收
     bc
   }
 
@@ -2671,6 +2674,7 @@ object SparkContext extends Logging {
           val scheduler = cm.createTaskScheduler(sc, masterUrl) //Yarn模式使用的也是 TaskSchedulerImpl
           //TODO Yarn模式下 SchedulerBackend的实现子类是YarnClusterSchedulerBackend
           val backend = cm.createSchedulerBackend(sc, masterUrl, scheduler)
+          //TODO 调用集群管理器的initialize
           cm.initialize(scheduler, backend)
           (backend, scheduler)
         } catch {

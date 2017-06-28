@@ -164,7 +164,7 @@ private[spark] class TaskSchedulerImpl(
     */
   override def start() {
     //TODO backend是CoarseGrainedSchedulerBackend是SchedulerBackend的一种实现
-    backend.start() //主要完成的是Driver的ref创建
+    backend.start() //TODO 启动集群资源管理器主要完成的是Driver的ref创建
 
     if (!isLocal && conf.getBoolean("spark.speculation", false)) {
       logInfo("Starting speculative execution thread")
