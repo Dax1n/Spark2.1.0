@@ -21,8 +21,11 @@ import org.apache.spark.{SparkContext, SparkException}
 import org.apache.spark.scheduler.{ExternalClusterManager, SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
 
 /**
- * Cluster Manager for creation of Yarn scheduler and backend
- */
+  * Cluster Manager for creation of Yarn scheduler and backend
+  * <br><br> <br><br>
+  * yarn模式下的一个集群管理器，实现了ExternalClusterManager接口
+  *
+  */
 private[spark] class YarnClusterManager extends ExternalClusterManager {
 
   override def canCreate(masterURL: String): Boolean = {
@@ -38,14 +41,14 @@ private[spark] class YarnClusterManager extends ExternalClusterManager {
   }
 
   override def createSchedulerBackend(sc: SparkContext,
-      masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend = {
+                                      masterURL: String,
+                                      scheduler: TaskScheduler): SchedulerBackend = {
     sc.deployMode match {
       case "cluster" =>
         new YarnClusterSchedulerBackend(scheduler.asInstanceOf[TaskSchedulerImpl], sc)
       case "client" =>
         new YarnClientSchedulerBackend(scheduler.asInstanceOf[TaskSchedulerImpl], sc)
-      case  _ =>
+      case _ =>
         throw new SparkException(s"Unknown deploy mode '${sc.deployMode}' for Yarn")
     }
   }

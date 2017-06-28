@@ -221,6 +221,7 @@ private[deploy] class Master(
   override def revokedLeadership() {
     self.send(RevokedLeadership)
   }
+
   //TODO 当消息为OneWayMessage调用EndPoint的receive
   override def receive: PartialFunction[Any, Unit] = {
     case ElectedLeader =>
@@ -256,7 +257,9 @@ private[deploy] class Master(
         registerApplication(app)
         logInfo("Registered app " + description.name + " with ID " + app.id)
         persistenceEngine.addApplication(app)
+        //TODO 返回给Driver的app的id信息
         driver.send(RegisteredApplication(app.id, self))
+        //TODO 完成Worker资源的筛选和分配
         schedule()
       }
 
@@ -618,7 +621,7 @@ private[deploy] class Master(
     * allocated at a time, 12 cores from each worker would be assigned to each executor.
     * Since 12 < 16, no executors would launch [SPARK-8881].<br><br>scheduleExecutorsOnWorkers返回为每个Worker上分配的cores的数组
     */
-  private def scheduleExecutorsOnWorkers(//scheduleExecutorsOnWorkers返回为每个Worker上分配的cores的数组
+  private def scheduleExecutorsOnWorkers(//TODO scheduleExecutorsOnWorkers返回为每个Worker上分配的cores的数组
                                          app: ApplicationInfo,
                                          usableWorkers: Array[WorkerInfo], spreadOutApps: Boolean): Array[Int] = {
 
@@ -728,16 +731,17 @@ private[deploy] class Master(
     for (app <- waitingApps if app.coresLeft > 0) {
       val coresPerExecutor: Option[Int] = app.desc.coresPerExecutor
       // Filter out workers that don't have enough resources to launch an executor
-      val usableWorkers = workers.toArray.filter(_.state == WorkerState.ALIVE) //筛选资源充足的可用的workers
+      //TODO 筛选资源充足的可用的workers
+      val usableWorkers = workers.toArray.filter(_.state == WorkerState.ALIVE)
         .filter(worker => worker.memoryFree >= app.desc.memoryPerExecutorMB && worker.coresFree >= coresPerExecutor.getOrElse(1)).sortBy(_.coresFree).reverse
 
-      //对该app在每一个worker上分配的核心数（数组）
+      //TODO 对该app在每一个worker上分配的核心数（数组）,scheduleExecutorsOnWorkers方法：真正完成worker资源筛选的过程
       val assignedCores = scheduleExecutorsOnWorkers(app, usableWorkers, spreadOutApps)
 
       // Now that we've decided how many cores to allocate on each worker, let's allocate them
-      //现在我们计算好了每一个worker需要分配的核心数目，接下来就开始正式分配了
+      //TODO 现在我们计算好了每一个worker需要分配的核心数目，接下来就开始正式分配了
       for (pos <- 0 until usableWorkers.length if assignedCores(pos) > 0) {
-        //allocateWorkerResourceToExecutors参数列表：应用，该worker给该app的核心数，每一个executor的核心数，worker的信息
+        //TODO allocateWorkerResourceToExecutors参数列表：应用，该worker给该app的核心数，每一个executor的核心数，worker的信息
         allocateWorkerResourceToExecutors(app, assignedCores(pos), coresPerExecutor, usableWorkers(pos)) //对每一个worker分配信息
       }
     }
@@ -775,7 +779,8 @@ private[deploy] class Master(
   /**
     * Schedule the currently available resources among waiting apps. This method will be called
     * every time a new app joins or resource availability changes.<br><br>
-    * 为等待运行的job调度当前可用的资源，当有新的job加入或者资源有变化时候，schedule()被调用
+    * 为等待运行的job分配当前可用的资源(给App在Worker上分配资源)，当有新的job加入或者资源有变化时候，schedule()被调用<br><br>
+    *
     *
     */
   private def schedule(): Unit = {
@@ -804,7 +809,7 @@ private[deploy] class Master(
       while (numWorkersVisited < numWorkersAlive && !launched) {
         val worker = shuffledAliveWorkers(curPos)
         numWorkersVisited += 1
-        //TODO 当前worker的内存和剩余cpu核数都大于driver需要的话
+        //TODO 当前worker的内存和剩余cpu核数都满足driver需要的资源的话
         if (worker.memoryFree >= driver.desc.mem && worker.coresFree >= driver.desc.cores) {
           launchDriver(worker, driver) //TODO 注意此处启动的是Driver,在当前worker上启动driver
           waitingDrivers -= driver
@@ -814,8 +819,8 @@ private[deploy] class Master(
       }
     }
 
-    //调度完成资源的计算然后在worker上启动Executor
-    //上面启动完毕Driver之后就开始Worker上分配executor
+    //TODO 调度完成资源的计算然后在worker上启动Executor
+    //TODO 上面启动完毕Driver之后就开始Worker上分配executor
     startExecutorsOnWorkers()
   }
 
@@ -904,6 +909,12 @@ private[deploy] class Master(
     schedule()
   }
 
+  /**
+    *
+    * @param desc
+    * @param driver
+    * @return
+    */
   private def createApplication(desc: ApplicationDescription, driver: RpcEndpointRef):
   ApplicationInfo = {
     val now = System.currentTimeMillis()

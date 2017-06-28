@@ -44,7 +44,8 @@ import org.apache.spark.util.{RpcUtils, SerializableBuffer, ThreadUtils, Utils}
   * CoarseGrainedSchedulerBackend等待一个粗粒度的执行器来连接。这个backend在整个Spark job期间保持每一个执行器。
   * 而不是当任务运行完之后就丢弃执行器，等运行新任务的时候再申请新的执行器。 执行器可以以不同的方式启动，
   * 如粗粒度的Mesos模式下的Mesos任务，和Spark独立模式下的独立进程。
-  *
+  *<br><br><br><br>
+  *   在Yarn模式下此CoarseGrainedSchedulerBackend的实现为YarnSchedulerBackend，是spark下的一个yarn模块
   *
   */
 private[spark]

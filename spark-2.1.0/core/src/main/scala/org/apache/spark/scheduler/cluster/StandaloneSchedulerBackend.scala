@@ -32,6 +32,7 @@ import org.apache.spark.util.Utils
 
 /**
  * A [[SchedulerBackend]] implementation for Spark's standalone cluster manager.
+  * Spark Standalone 集群模式下的一个集群资源管理器
  */
 private[spark] class StandaloneSchedulerBackend(
     scheduler: TaskSchedulerImpl,
@@ -105,7 +106,9 @@ private[spark] class StandaloneSchedulerBackend(
       }
     val appDesc = new ApplicationDescription(sc.appName, maxCores, sc.executorMemory, command,
       appUIAddress, sc.eventLogDir, sc.eventLogCodec, coresPerExecutor, initialExecutorLimit)
+    //TODO StandaloneAppClient的声明周期Onstart方法中registerWithMaster方法中调用给Master发送消息提交作业
     client = new StandaloneAppClient(sc.env.rpcEnv, masters, appDesc, this, conf)
+    //TODO 负责将AppClient的ClientEndpoint注册到rpcEnv中
     client.start()
     launcherBackend.setState(SparkAppHandle.State.SUBMITTED)
     waitForRegistration()

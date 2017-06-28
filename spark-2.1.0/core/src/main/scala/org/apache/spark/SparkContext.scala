@@ -2590,7 +2590,7 @@ object SparkContext extends Logging {
     * @param sc
     * @param master
     * @param deployMode
-    * @return (schedulerBackend, taskScheduler)
+    * @return (schedulerBackend, taskScheduler) CoarseGrainedSchedulerBackend是schedulerBackend的一种实现之一，在Standalone模式下实现为StandaloneSchedulerBackend
     */
   private def createTaskScheduler(
                                    sc: SparkContext,
@@ -2630,10 +2630,11 @@ object SparkContext extends Logging {
         scheduler.initialize(backend)
         (backend, scheduler)
 
-        //TODO Standalone模式的时候，使用StandaloneSchedulerBackend
+      //TODO Standalone模式的时候，使用StandaloneSchedulerBackend
       case SPARK_REGEX(sparkUrl) =>
         val scheduler = new TaskSchedulerImpl(sc)
         val masterUrls = sparkUrl.split(",").map("spark://" + _)
+        // TODO StandaloneSchedulerBackend是一个集群资源管理器
         val backend = new StandaloneSchedulerBackend(scheduler, sc, masterUrls)
         scheduler.initialize(backend)
         (backend, scheduler)
@@ -2658,13 +2659,16 @@ object SparkContext extends Logging {
         }
         (backend, scheduler)
 
+      //TODO master url最后一个分支
       case masterUrl =>
-        val cm = getClusterManager(masterUrl) match {
+        //TODO YarnClusterManager extends ExternalClusterManager，如果是在Yarn模式下的话集群管理器是YarnClusterManager
+        val cm = getClusterManager(masterUrl) match {  //cm: ExternalClusterManager =...
           case Some(clusterMgr) => clusterMgr
           case None => throw new SparkException("Could not parse Master URL: '" + master + "'")
         }
         try {
           val scheduler = cm.createTaskScheduler(sc, masterUrl)
+          //TODO 创建SchedulerBackend
           val backend = cm.createSchedulerBackend(sc, masterUrl, scheduler)
           cm.initialize(scheduler, backend)
           (backend, scheduler)
@@ -2675,14 +2679,17 @@ object SparkContext extends Logging {
         }
     }
   }
+
   private def getClusterManager(url: String): Option[ExternalClusterManager] = {
     val loader = Utils.getContextOrSparkClassLoader
-    val serviceLoaders =
+    val serviceLoaders = // Iterable[ExternalClusterManager]类型
       ServiceLoader.load(classOf[ExternalClusterManager], loader).asScala.filter(_.canCreate(url))
+
     if (serviceLoaders.size > 1) {
       throw new SparkException(
         s"Multiple external cluster managers registered for the url $url: $serviceLoaders")
     }
+
     serviceLoaders.headOption
   }
 }

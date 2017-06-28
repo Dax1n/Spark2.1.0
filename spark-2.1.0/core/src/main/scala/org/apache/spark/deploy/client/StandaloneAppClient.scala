@@ -35,7 +35,7 @@ import org.apache.spark.util.{RpcUtils, ThreadUtils}
 
 /**
  * Interface allowing applications to speak with a Spark standalone cluster manager.
- *
+ *<br>StandaloneAppClient为提交作业的一种客户端，负责App和Spark集群管理器的执行<br>
  * Takes a master URL, an app description, and a listener for cluster events, and calls
  * back the listener when various events occur.
  *
@@ -83,6 +83,7 @@ private[spark] class StandaloneAppClient(
 
     override def onStart(): Unit = {
       try {
+        //TODO registerWithMaster方法中调用给Master发送消息提交作业
         registerWithMaster(1)
       } catch {
         case e: Exception =>
@@ -93,7 +94,9 @@ private[spark] class StandaloneAppClient(
     }
 
     /**
+      * org.apache.spark.deploy.client.StandaloneAppClient.ClientEndpoint#tryRegisterAllMasters()
      *  Register with all masters asynchronously and returns an array `Future`s for cancellation.
+      *  <br>给master发送提交作业的消息<br>
      */
     private def tryRegisterAllMasters(): Array[JFuture[_]] = {
       for (masterAddress <- masterRpcAddresses) yield {
@@ -103,7 +106,10 @@ private[spark] class StandaloneAppClient(
               return
             }
             logInfo("Connecting to master " + masterAddress.toSparkURL + "...")
+            //TODO获取Master的EndPointRef
             val masterRef = rpcEnv.setupEndpointRef(masterAddress, Master.ENDPOINT_NAME)
+            //TODO 给master发送RegisterApplication消息
+            //TODO ClientEndpoint充当客户端的RpcEndPoint，是的一个StandaloneAppClient的内部类
             masterRef.send(RegisterApplication(appDescription, self))
           } catch {
             case ie: InterruptedException => // Cancelled
@@ -121,6 +127,8 @@ private[spark] class StandaloneAppClient(
      * nthRetry means this is the nth attempt to register with master.
      */
     private def registerWithMaster(nthRetry: Int) {
+
+      //TODO tryRegisterAllMasters方法负责给Master发送提交作业消息
       registerMasterFutures.set(tryRegisterAllMasters())
       registrationRetryTimer.set(registrationRetryThread.schedule(new Runnable {
         override def run(): Unit = {
@@ -267,6 +275,9 @@ private[spark] class StandaloneAppClient(
 
   }
 
+  /**
+    * 负责将AppClient的ClientEndpoint注册到rpcEnv中
+    */
   def start() {
     // Just launch an rpcEndpoint; it will call back into the listener.
     endpoint.set(rpcEnv.setupEndpoint("AppClient", new ClientEndpoint(rpcEnv)))
