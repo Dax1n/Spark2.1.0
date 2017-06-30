@@ -88,8 +88,7 @@ class DirectKafkaInputDStream[
 
   protected val kc = new KafkaCluster(kafkaParams)
 
-  private val maxRateLimitPerPartition: Long = context.sparkContext.getConf.getLong(
-      "spark.streaming.kafka.maxRatePerPartition", 0)
+  private val maxRateLimitPerPartition: Long = context.sparkContext.getConf.getLong("spark.streaming.kafka.maxRatePerPartition", 0)
 
   protected[streaming] def maxMessagesPerPartition(
       offsets: Map[TopicAndPartition, Long]): Option[Map[TopicAndPartition, Long]] = {
@@ -152,8 +151,10 @@ class DirectKafkaInputDStream[
 
     val result = maxMessagesPerPartition(offsets).map { mmp =>
       mmp.map { case (tp, messages) =>
-        val lo = leaderOffsets(tp)
+        //TODO lo类型为：LeaderOffset
+        val lo = leaderOffsets(tp) //map获取元素
         //TODO 读取kafka的最新偏移值之后，需要做判断，在"当前偏移到获取最新偏移"之间消息和每一次获取最大消息之间最小值
+        //TODO 当前位置+上消息的大小("currentOffsets(tp) + messages")计算如果实际获取messages消息的偏移值，lo.offset为当前最新的偏移值，目的保证每一次获取到不大于messages个消息
         tp -> lo.copy(offset = Math.min(currentOffsets(tp) + messages, lo.offset))
       }
     }.getOrElse(leaderOffsets)
@@ -162,6 +163,7 @@ class DirectKafkaInputDStream[
   }
   //TODO
   override def compute(validTime: Time): Option[KafkaRDD[K, V, U, T, R]] = {
+    //TODO org.apache.spark.streaming.kafka.DirectKafkaInputDStream.clamp重要方法，获取实际偏移地址
     val untilOffsets = clamp(latestLeaderOffsets(maxRetries))//TODO 此处获取的结束偏移
     //TODO 创建KafkaRDD
     val rdd = KafkaRDD[K, V, U, T, R](
