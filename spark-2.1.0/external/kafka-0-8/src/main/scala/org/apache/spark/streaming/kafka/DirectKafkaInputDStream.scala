@@ -65,7 +65,7 @@ class DirectKafkaInputDStream[
     messageHandler: MessageAndMetadata[K, V] => R
   ) extends InputDStream[R](_ssc) with Logging {
   val maxRetries = context.sparkContext.getConf.getInt(
-    "spark.streaming.kafka.maxRetries", 1)
+    "spark.streaming.kafka.maxRetries", 1) //失败重试1次
 
   // Keep this consistent with how other streams are named (e.g. "Flume polling stream [2]")
   private[streaming] override def name: String = s"Kafka direct stream [$id]"
@@ -141,21 +141,29 @@ class DirectKafkaInputDStream[
     }
   }
 
-  // limits the maximum number of messages per partition
+  /**
+    * limits the maximum number of messages per partition
+    * @param leaderOffsets
+    * @return
+    */
   protected def clamp(
     leaderOffsets: Map[TopicAndPartition, LeaderOffset]): Map[TopicAndPartition, LeaderOffset] = {
     val offsets = leaderOffsets.mapValues(lo => lo.offset)
 
-    maxMessagesPerPartition(offsets).map { mmp =>
+    val result = maxMessagesPerPartition(offsets).map { mmp =>
       mmp.map { case (tp, messages) =>
         val lo = leaderOffsets(tp)
+        //TODO 读取kafka的最新偏移值之后，需要做判断，在"当前偏移到获取最新偏移"之间消息和每一次获取最大消息之间最小值
         tp -> lo.copy(offset = Math.min(currentOffsets(tp) + messages, lo.offset))
       }
     }.getOrElse(leaderOffsets)
-  }
 
+    result
+  }
+  //TODO
   override def compute(validTime: Time): Option[KafkaRDD[K, V, U, T, R]] = {
-    val untilOffsets = clamp(latestLeaderOffsets(maxRetries))
+    val untilOffsets = clamp(latestLeaderOffsets(maxRetries))//TODO 此处获取的结束偏移
+    //TODO 创建KafkaRDD
     val rdd = KafkaRDD[K, V, U, T, R](
       context.sparkContext, kafkaParams, currentOffsets, untilOffsets, messageHandler)
 

@@ -807,16 +807,18 @@ object StreamingContext extends Logging {
    * If checkpoint data exists in the provided `checkpointPath`, then StreamingContext will be
    * recreated from the checkpoint data. If the data does not exist, then the StreamingContext
    * will be created by called the provided `creatingFunc`.
+    *
+    * <br><br>spark streaming中比较重要的方法，如果存在checkpoint数据的话则从checkpoint的数据中创建StreamingContext，否则创建新的StreamingContext<br><br>
    *
-   * @param checkpointPath Checkpoint directory used in an earlier StreamingContext program
-   * @param creatingFunc   Function to create a new StreamingContext
+   * @param checkpointPath Checkpoint directory used in an earlier StreamingContext program，checkpoint目录
+   * @param creatingFunc   Function to create a new StreamingContext，创建StreamingContext的函数
    * @param hadoopConf     Optional Hadoop configuration if necessary for reading from the
    *                       file system
    * @param createOnError  Optional, whether to create a new StreamingContext if there is an
    *                       error in reading checkpoint data. By default, an exception will be
    *                       thrown on error.
    */
-  def getOrCreate(
+  def getOrCreate(//TODO spark streaming中比较重要的方法，如果存在checkpoint数据的话则从checkpoint的数据中创建StreamingContext，否则创建新的StreamingContext
       checkpointPath: String,
       creatingFunc: () => StreamingContext,
       hadoopConf: Configuration = SparkHadoopUtil.get.conf,

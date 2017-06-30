@@ -74,7 +74,7 @@ object KafkaUtils {
    *                    see http://kafka.apache.org/08/configuration.html
    * @param topics      Map of (topic_name to numPartitions) to consume. Each partition is consumed
    *                    in its own thread.
-   * @param storageLevel Storage level to use for storing the received objects
+   * @param storageLevel Storage level to use for storing the received objects（存储消息的级别）
    * @tparam K type of Kafka message key
    * @tparam V type of Kafka message value
    * @tparam U type of Kafka message key decoder
@@ -87,6 +87,7 @@ object KafkaUtils {
       topics: Map[String, Int],
       storageLevel: StorageLevel
     ): ReceiverInputDStream[(K, V)] = {
+    //TODO 一次语义，是否开启WriteAheadLog
     val walEnabled = WriteAheadLogUtils.enableReceiverLog(ssc.conf)
     new KafkaInputDStream[K, V, U, T](ssc, kafkaParams, topics, walEnabled, storageLevel)
   }
@@ -431,6 +432,7 @@ object KafkaUtils {
       messageHandler: MessageAndMetadata[K, V] => R
   ): InputDStream[R] = {
     val cleanedHandler = ssc.sc.clean(messageHandler)
+    //DirectKafkaInputDStream
     new DirectKafkaInputDStream[K, V, KD, VD, R](
       ssc, kafkaParams, fromOffsets, cleanedHandler)
   }

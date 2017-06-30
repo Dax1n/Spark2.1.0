@@ -34,41 +34,43 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.util.NextIterator
 
 /**
- * A batch-oriented interface for consuming from Kafka.
- * Starting and ending offsets are specified in advance,
- * so that you can control exactly-once semantics.
- * @param kafkaParams Kafka <a href="http://kafka.apache.org/documentation.html#configuration">
- * configuration parameters</a>. Requires "metadata.broker.list" or "bootstrap.servers" to be set
- * with Kafka broker(s) specified in host1:port1,host2:port2 form.
- * @param offsetRanges offset ranges that define the Kafka data belonging to this RDD
- * @param messageHandler function for translating each message into the desired type
- */
+  * A batch-oriented interface for consuming from Kafka.
+  * Starting and ending offsets are specified in advance,
+  * so that you can control exactly-once semantics.
+  *
+  * @param kafkaParams    Kafka <a href="http://kafka.apache.org/documentation.html#configuration">
+  *                       configuration parameters</a>. Requires "metadata.broker.list" or "bootstrap.servers" to be set
+  *                       with Kafka broker(s) specified in host1:port1,host2:port2 form.
+  * @param offsetRanges   offset ranges that define the Kafka data belonging to this RDD
+  * @param messageHandler function for translating each message into the desired type
+  */
 private[kafka]
 class KafkaRDD[
-  K: ClassTag,
-  V: ClassTag,
-  U <: Decoder[_]: ClassTag,
-  T <: Decoder[_]: ClassTag,
-  R: ClassTag] private[spark] (
-    sc: SparkContext,
-    kafkaParams: Map[String, String],
-    val offsetRanges: Array[OffsetRange],
-    leaders: Map[TopicAndPartition, (String, Int)],
-    messageHandler: MessageAndMetadata[K, V] => R
-  ) extends RDD[R](sc, Nil) with Logging with HasOffsetRanges {
+K: ClassTag,
+V: ClassTag,
+U <: Decoder[_] : ClassTag,
+T <: Decoder[_] : ClassTag,
+R: ClassTag] private[spark](
+                             sc: SparkContext,
+                             kafkaParams: Map[String, String],
+                             val offsetRanges: Array[OffsetRange],
+                             leaders: Map[TopicAndPartition, (String, Int)],
+                             messageHandler: MessageAndMetadata[K, V] => R
+                           ) extends RDD[R](sc, Nil) with Logging with HasOffsetRanges {
+
   override def getPartitions: Array[Partition] = {
     offsetRanges.zipWithIndex.map { case (o, i) =>
-        val (host, port) = leaders(TopicAndPartition(o.topic, o.partition))
-        new KafkaRDDPartition(i, o.topic, o.partition, o.fromOffset, o.untilOffset, host, port)
+      val (host, port) = leaders(TopicAndPartition(o.topic, o.partition))
+      new KafkaRDDPartition(i, o.topic, o.partition, o.fromOffset, o.untilOffset, host, port)
     }.toArray
   }
 
   override def count(): Long = offsetRanges.map(_.count).sum
 
   override def countApprox(
-      timeout: Long,
-      confidence: Double = 0.95
-  ): PartialResult[BoundedDouble] = {
+                            timeout: Long,
+                            confidence: Double = 0.95
+                          ): PartialResult[BoundedDouble] = {
     val c = count
     new PartialResult(new BoundedDouble(c, 1.0, c, c), true)
   }
@@ -117,14 +119,15 @@ class KafkaRDD[
 
   private def errRanOutBeforeEnd(part: KafkaRDDPartition): String =
     s"Ran out of messages before reaching ending offset ${part.untilOffset} " +
-    s"for topic ${part.topic} partition ${part.partition} start ${part.fromOffset}." +
-    " This should not happen, and indicates that messages may have been lost"
+      s"for topic ${part.topic} partition ${part.partition} start ${part.fromOffset}." +
+      " This should not happen, and indicates that messages may have been lost"
 
   private def errOvershotEnd(itemOffset: Long, part: KafkaRDDPartition): String =
     s"Got ${itemOffset} > ending offset ${part.untilOffset} " +
-    s"for topic ${part.topic} partition ${part.partition} start ${part.fromOffset}." +
-    " This should not happen, and indicates a message may have been skipped"
+      s"for topic ${part.topic} partition ${part.partition} start ${part.fromOffset}." +
+      " This should not happen, and indicates a message may have been skipped"
 
+  //TODO 读取kafka数据
   override def compute(thePart: Partition, context: TaskContext): Iterator[R] = {
     val part = thePart.asInstanceOf[KafkaRDDPartition]
     assert(part.fromOffset <= part.untilOffset, errBeginAfterEnd(part))
@@ -138,13 +141,14 @@ class KafkaRDD[
   }
 
   /**
-   * An iterator that fetches messages directly from Kafka for the offsets in partition.
-   */
+    * An iterator that fetches messages directly from Kafka for the offsets in partition.
+    * <br><br>一个直接从分区开始的offset处直接获取消息的迭代器
+    */
   private class KafkaRDDIterator(
-      part: KafkaRDDPartition,
-      context: TaskContext) extends NextIterator[R] {
+                                  part: KafkaRDDPartition,
+                                  context: TaskContext) extends NextIterator[R] {
 
-    context.addTaskCompletionListener{ context => closeIfNeeded() }
+    context.addTaskCompletionListener { context => closeIfNeeded() }
 
     logInfo(s"Computing topic ${part.topic}, partition ${part.partition} " +
       s"offsets ${part.fromOffset} -> ${part.untilOffset}")
@@ -156,13 +160,19 @@ class KafkaRDD[
     val valueDecoder = classTag[T].runtimeClass.getConstructor(classOf[VerifiableProperties])
       .newInstance(kc.config.props)
       .asInstanceOf[Decoder[V]]
+    //TODO kafka消费者consumer： SimpleConsumer
     val consumer = connectLeader
-    var requestOffset = part.fromOffset
+    var requestOffset = part.fromOffset //TODO part包含开始和结束的offset
     var iter: Iterator[MessageAndOffset] = null
 
-    // The idea is to use the provided preferred host, except on task retry attempts,
-    // to minimize number of kafka metadata requests
+    /**
+      * The idea is to use the provided preferred host, except on task retry attempts,
+      * to minimize number of kafka metadata requests
+      *
+      * @return
+      */
     private def connectLeader: SimpleConsumer = {
+
       if (context.attemptNumber > 0) {
         kc.connectLeader(part.topic, part.partition).fold(
           errs => throw new SparkException(
@@ -173,7 +183,9 @@ class KafkaRDD[
       } else {
         kc.connect(part.host, part.port)
       }
+
     }
+
 
     private def handleFetchErr(resp: FetchResponse) {
       if (resp.hasError) {
@@ -189,16 +201,18 @@ class KafkaRDD[
       }
     }
 
+    //TODO case class MessageAndOffset(message: Message, offset: Long)
     private def fetchBatch: Iterator[MessageAndOffset] = {
       val req = new FetchRequestBuilder()
         .addFetch(part.topic, part.partition, requestOffset, kc.config.fetchMessageMaxBytes)
         .build()
+      //TODO kafka.consumer.SimpleConsumer.fetch方法说明： Fetch a set of messages from a topic. return a set of fetched messages
       val resp = consumer.fetch(req)
       handleFetchErr(resp)
       // kafka may return a batch that starts before the requested offset
-      resp.messageSet(part.topic, part.partition)
+       resp.messageSet(part.topic, part.partition)
         .iterator
-        .dropWhile(_.offset < requestOffset)
+        .dropWhile(_.offset < requestOffset) // Iterator[MessageAndOffset]
     }
 
     override def close(): Unit = {
@@ -229,42 +243,46 @@ class KafkaRDD[
       }
     }
   }
+
 }
 
 private[kafka]
 object KafkaRDD {
+
   import KafkaCluster.LeaderOffset
 
   /**
-   * @param kafkaParams Kafka <a href="http://kafka.apache.org/documentation.html#configuration">
-   * configuration parameters</a>.
-   *   Requires "metadata.broker.list" or "bootstrap.servers" to be set with Kafka broker(s),
-   *   NOT zookeeper servers, specified in host1:port1,host2:port2 form.
-   * @param fromOffsets per-topic/partition Kafka offsets defining the (inclusive)
-   *  starting point of the batch
-   * @param untilOffsets per-topic/partition Kafka offsets defining the (exclusive)
-   *  ending point of the batch
-   * @param messageHandler function for translating each message into the desired type
-   */
+    * @param kafkaParams    Kafka <a href="http://kafka.apache.org/documentation.html#configuration">
+    *                       configuration parameters</a>.
+    *                       Requires "metadata.broker.list" or "bootstrap.servers" to be set with Kafka broker(s),
+    *                       NOT zookeeper servers, specified in host1:port1,host2:port2 form.
+    * @param fromOffsets    per-topic/partition Kafka offsets defining the (inclusive)
+    *                       starting point of the batch
+    * @param untilOffsets   per-topic/partition Kafka offsets defining the (exclusive)
+    *                       ending point of the batch
+    * @param messageHandler function for translating each message into the desired type
+    */
   def apply[
-    K: ClassTag,
-    V: ClassTag,
-    U <: Decoder[_]: ClassTag,
-    T <: Decoder[_]: ClassTag,
-    R: ClassTag](
-      sc: SparkContext,
-      kafkaParams: Map[String, String],
-      fromOffsets: Map[TopicAndPartition, Long],
-      untilOffsets: Map[TopicAndPartition, LeaderOffset],
-      messageHandler: MessageAndMetadata[K, V] => R
-    ): KafkaRDD[K, V, U, T, R] = {
+  K: ClassTag,
+  V: ClassTag,
+  U <: Decoder[_] : ClassTag,
+  T <: Decoder[_] : ClassTag,
+  R: ClassTag](//TODO 创建KafkaRDD
+                sc: SparkContext,
+                kafkaParams: Map[String, String],
+                fromOffsets: Map[TopicAndPartition, Long],
+                untilOffsets: Map[TopicAndPartition, LeaderOffset],
+                messageHandler: MessageAndMetadata[K, V] => R
+              ): KafkaRDD[K, V, U, T, R] = {
+    //TODO leaders: Map[TopicAndPartition, (String, Int)]
     val leaders = untilOffsets.map { case (tp, lo) =>
-        tp -> (lo.host, lo.port)
+      tp ->(lo.host, lo.port)
     }.toMap
 
-    val offsetRanges = fromOffsets.map { case (tp, fo) =>
-        val uo = untilOffsets(tp)
-        OffsetRange(tp.topic, tp.partition, fo, uo.offset)
+    //TODO 获取topic，起始offset，结束offset
+    val offsetRanges = fromOffsets.map { case (tp, fo) => //fromOffsets为Map[String, String]类型
+      val uo = untilOffsets(tp) //untilOffsets为Map[String, String]类型
+      OffsetRange(tp.topic, tp.partition, fo, uo.offset)
     }.toArray
 
     new KafkaRDD[K, V, U, T, R](sc, kafkaParams, offsetRanges, leaders, messageHandler)

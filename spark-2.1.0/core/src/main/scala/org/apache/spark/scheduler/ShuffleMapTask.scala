@@ -33,7 +33,7 @@ import org.apache.spark.shuffle.ShuffleWriter
 /**
  * A ShuffleMapTask divides the elements of an RDD into multiple buckets (based on a partitioner
  * specified in the ShuffleDependency).
- *
+ *<br>ShuffleMapTask根据分区器Partitioner将数据划分到多个buckets中<br>
  * See [[org.apache.spark.scheduler.Task]] for more information.
  *
  * @param stageId id of the stage this task belongs to
@@ -50,7 +50,7 @@ import org.apache.spark.shuffle.ShuffleWriter
  * @param appId id of the app this task belongs to
  * @param appAttemptId attempt id of the app this task belongs to
  */
-private[spark] class ShuffleMapTask(
+private[spark] class ShuffleMapTask(//TODO 负责将数据落盘，等待下游读取数据  (具体出去数据的逻辑在ShuffledRDD的compute方法中)
     stageId: Int,
     stageAttemptId: Int,
     taskBinary: Broadcast[Array[Byte]],
@@ -74,6 +74,11 @@ private[spark] class ShuffleMapTask(
     if (locs == null) Nil else locs.toSet.toSeq
   }
 
+  /**
+    * org.apache.spark.scheduler.ShuffleMapTask#runTask(org.apache.spark.TaskContext)
+    * @param context
+    * @return
+    */
   override def runTask(context: TaskContext): MapStatus = {
     // Deserialize the RDD using the broadcast variable.
     val threadMXBean = ManagementFactory.getThreadMXBean
@@ -81,9 +86,11 @@ private[spark] class ShuffleMapTask(
     val deserializeStartCpuTime = if (threadMXBean.isCurrentThreadCpuTimeSupported) {
       threadMXBean.getCurrentThreadCpuTime
     } else 0L
+    //TODO 获取闭包序列化器
     val ser = SparkEnv.get.closureSerializer.newInstance()
-    val (rdd, dep) = ser.deserialize[(RDD[_], ShuffleDependency[_, _, _])](
-      ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)
+    //TODO: 反序列化，taskBinary的数据类型为： Broadcast[Array[Byte]]
+    val (rdd, dep) = ser.deserialize[(RDD[_], ShuffleDependency[_, _, _])](ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)
+
     _executorDeserializeTime = System.currentTimeMillis() - deserializeStartTime
     _executorDeserializeCpuTime = if (threadMXBean.isCurrentThreadCpuTimeSupported) {
       threadMXBean.getCurrentThreadCpuTime - deserializeStartCpuTime
@@ -91,8 +98,11 @@ private[spark] class ShuffleMapTask(
 
     var writer: ShuffleWriter[Any, Any] = null
     try {
+      //TODO 获取SparkEnv中的shuffleManager
       val manager = SparkEnv.get.shuffleManager
+      //TODO 获取ShuffleWriter，Spark2.1版本移除了HashShuffleManager,只保留了SortShuffleManager
       writer = manager.getWriter[Any, Any](dep.shuffleHandle, partitionId, context)
+      //TODO
       writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])
       writer.stop(success = true).get
     } catch {

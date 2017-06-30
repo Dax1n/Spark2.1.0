@@ -25,23 +25,29 @@ import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
 
 /**
- * Fetches and reads the partitions in range [startPartition, endPartition) from a shuffle by
- * requesting them from other nodes' block stores.
- */
+  * Fetches and reads the partitions in range [startPartition, endPartition) from a shuffle by
+  * requesting them from other nodes' block stores.<br><br>
+  * 从上游获取startPartition, endPartition之间的分区数据
+  */
 private[spark] class BlockStoreShuffleReader[K, C](
-    handle: BaseShuffleHandle[K, _, C],
-    startPartition: Int,
-    endPartition: Int,
-    context: TaskContext,
-    serializerManager: SerializerManager = SparkEnv.get.serializerManager,
-    blockManager: BlockManager = SparkEnv.get.blockManager,
-    mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker)
+                                                    handle: BaseShuffleHandle[K, _, C],
+                                                    startPartition: Int,
+                                                    endPartition: Int,
+                                                    context: TaskContext,
+                                                    serializerManager: SerializerManager = SparkEnv.get.serializerManager,
+                                                    blockManager: BlockManager = SparkEnv.get.blockManager,
+                                                    mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker)
   extends ShuffleReader[K, C] with Logging {
 
   private val dep = handle.dependency
 
-  /** Read the combined key-values for this reduce task */
+  /**
+    * Read the combined key-values for this reduce task
+    * 为当前的reduce task拉取上游数据
+    * @return
+    */
   override def read(): Iterator[Product2[K, C]] = {
+
     val blockFetcherItr = new ShuffleBlockFetcherIterator(
       context,
       blockManager.shuffleClient,

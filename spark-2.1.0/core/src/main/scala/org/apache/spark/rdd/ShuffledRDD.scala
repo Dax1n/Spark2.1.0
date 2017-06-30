@@ -103,8 +103,16 @@ class ShuffledRDD[K: ClassTag, V: ClassTag, C: ClassTag](
     tracker.getPreferredLocationsForShuffle(dep, partition.index)
   }
 
+  /**
+    * <br><br>Implemented by subclasses to compute a given partition.<br><br>
+    * ShuffleRDD计算的逻辑，其中包含读取中间结果的逻辑
+    * @param split
+    * @param context
+    * @return
+    */
   override def compute(split: Partition, context: TaskContext): Iterator[(K, C)] = {
     val dep = dependencies.head.asInstanceOf[ShuffleDependency[K, V, C]]
+    //TODO Shuffle RDD读取上游数据的代码
     SparkEnv.get.shuffleManager.getReader(dep.shuffleHandle, split.index, split.index + 1, context)
       .read()
       .asInstanceOf[Iterator[(K, C)]]
