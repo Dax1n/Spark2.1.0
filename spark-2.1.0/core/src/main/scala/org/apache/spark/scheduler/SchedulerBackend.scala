@@ -23,7 +23,8 @@ package org.apache.spark.scheduler
   * machines become available and can launch tasks on them.<br><br>
   *
   * SchedulerBackend：申请资源和task执行和管理
-  *<br><br> 实现类有：Make fake resource offers on all executors
+  * <br><br>实现的子类有：CoarseGrainedSchedulerBackend
+  * <br><br> 实现类有：Make fake resource offers on all executors
   */
 private[spark] trait SchedulerBackend {
   private val appId = "spark-application-" + System.currentTimeMillis
