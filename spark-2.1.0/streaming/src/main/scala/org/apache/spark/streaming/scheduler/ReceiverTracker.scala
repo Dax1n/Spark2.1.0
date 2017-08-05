@@ -616,8 +616,7 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
             val receiver = iterator.next()
             assert(iterator.hasNext == false)
             //TODO 完成ReceiverSupervisorImpl的创建
-            val supervisor = new ReceiverSupervisorImpl(
-              receiver, SparkEnv.get, serializableHadoopConf.value, checkpointDirOption)
+            val supervisor = new ReceiverSupervisorImpl(receiver, SparkEnv.get, serializableHadoopConf.value, checkpointDirOption)
             supervisor.start()
             supervisor.awaitTermination()
           } else {
@@ -626,6 +625,7 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
         }
 
       // Create the RDD using the scheduledLocations to run the receiver in a Spark job
+      //TODO 创建RDD，返回的是存储元数类型为Receiver的RDD
       val receiverRDD: RDD[Receiver[_]] =
         if (scheduledLocations.isEmpty) {
           ssc.sc.makeRDD(Seq(receiver), 1)
@@ -637,8 +637,10 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
       ssc.sparkContext.setJobDescription(s"Streaming job running receiver $receiverId")
       ssc.sparkContext.setCallSite(Option(ssc.getStartSite()).getOrElse(Utils.getCallSite()))
 
-      val future = ssc.sparkContext.submitJob[Receiver[_], Unit, Unit](
-        receiverRDD, startReceiverFunc, Seq(0), (_, _) => Unit, ())
+      //TODO 提交作业进行执行
+      //TODO 注意：此处提交的RDD的类型为：RDD[Receiver]
+      val future = ssc.sparkContext.submitJob[Receiver[_], Unit, Unit](receiverRDD, startReceiverFunc, Seq(0), (_, _) => Unit, ())
+
       // We will keep restarting the receiver job until ReceiverTracker is stopped
       future.onComplete {
         case Success(_) =>

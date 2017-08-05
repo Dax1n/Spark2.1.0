@@ -135,7 +135,9 @@ private[streaming] abstract class ReceiverSupervisor(
 
   /** Start the supervisor */
   def start() {
+    //启动所有BlockGenerator
     onStart()
+    //TODO 真正启动Receiver
     startReceiver()
   }
 

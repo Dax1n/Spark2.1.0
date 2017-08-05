@@ -2100,9 +2100,13 @@ class SparkContext(config: SparkConf) extends Logging {
   }
 
   /**
-    * Submit a job for execution and return a FutureJob holding the result.
-    * 提交一个job执行返回一个异步可获取的结果
-    *
+    *  Submit a job for execution and return a FutureJob holding the result.
+    * 提交一个job执行返回一个异步可获取的结果<br><br>
+    * @param rdd target RDD to run tasks on
+    * @param processPartition a function to run on each partition of the RDD
+    * @param partitions set of partitions to run on; some jobs may not want to compute on all partitions of the target RDD, e.g. for operations like first()
+    * @param resultHandler callback to pass each result to
+    * @param resultFunc function to be executed when the result is ready
     */
   def submitJob[T, U, R](
                           rdd: RDD[T],

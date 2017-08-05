@@ -177,6 +177,9 @@ private[streaming] class ReceiverSupervisorImpl(
     logWarning("Reported error " + message + " - " + error)
   }
 
+  /**
+    * 启动所有的BlockGenerator
+    */
   override protected def onStart() {
     registeredBlockGenerators.asScala.foreach { _.start() }
   }

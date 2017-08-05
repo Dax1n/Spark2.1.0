@@ -77,6 +77,7 @@ class SocketReceiver[T: ClassTag](
 
   private var socket: Socket = _
 
+  //被调用处：org.apache.spark.streaming.receiver.ReceiverSupervisor.startReceiver
   def onStart() {
 
     logInfo(s"Connecting to $host:$port")
