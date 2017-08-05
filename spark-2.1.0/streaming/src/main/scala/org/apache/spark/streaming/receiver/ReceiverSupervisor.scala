@@ -133,7 +133,10 @@ private[streaming] abstract class ReceiverSupervisor(
   /** Called when receiver is stopped */
   protected def onReceiverStop(message: String, error: Option[Throwable]) {}
 
-  /** Start the supervisor */
+  /** Start the supervisor
+    * <br><br>1：启动BlockGenerator
+    * 2：启动Receiver
+    */
   def start() {
     //启动所有BlockGenerator
     onStart()

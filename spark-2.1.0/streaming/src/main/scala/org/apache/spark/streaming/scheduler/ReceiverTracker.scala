@@ -617,6 +617,7 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
             assert(iterator.hasNext == false)
             //TODO 完成ReceiverSupervisorImpl的创建
             val supervisor = new ReceiverSupervisorImpl(receiver, SparkEnv.get, serializableHadoopConf.value, checkpointDirOption)
+            //
             supervisor.start()
             supervisor.awaitTermination()
           } else {
@@ -628,7 +629,8 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
       //TODO 创建RDD，返回的是存储元数类型为Receiver的RDD
       val receiverRDD: RDD[Receiver[_]] =
         if (scheduledLocations.isEmpty) {
-          ssc.sc.makeRDD(Seq(receiver), 1)
+
+          ssc.sc.makeRDD(Seq(receiver), 1)//创建只有一个分区的RDD
         } else {
           val preferredLocations = scheduledLocations.map(_.toString).distinct
           ssc.sc.makeRDD(Seq(receiver -> preferredLocations))
