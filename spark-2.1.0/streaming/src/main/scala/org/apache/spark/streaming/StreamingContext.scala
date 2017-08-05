@@ -180,6 +180,9 @@ class StreamingContext private[streaming] (
     if (isCheckpointPresent) _cp.checkpointDuration else graph.batchDuration
   }
 
+  /**
+    *  private[streaming] val scheduler = new JobScheduler(this)
+    */
   private[streaming] val scheduler = new JobScheduler(this)
 
   private[streaming] val waiter = new ContextWaiter
@@ -299,6 +302,7 @@ class StreamingContext private[streaming] (
       port: Int,
       storageLevel: StorageLevel = StorageLevel.MEMORY_AND_DISK_SER_2
     ): ReceiverInputDStream[String] = withNamedScope("socket text stream") {
+
     socketStream[String](hostname, port, SocketReceiver.bytesToLines, storageLevel)
   }
 
@@ -318,6 +322,7 @@ class StreamingContext private[streaming] (
       converter: (InputStream) => Iterator[T],
       storageLevel: StorageLevel
     ): ReceiverInputDStream[T] = {
+    //TODO SocketInputDStream继承至ReceiverInputDStream
     new SocketInputDStream[T](this, hostname, port, converter, storageLevel)
   }
 
@@ -600,6 +605,8 @@ class StreamingContext private[streaming] (
         env.metricsSystem.registerSource(streamingSource)
         uiTab.foreach(_.attach())
         logInfo("StreamingContext started")
+
+
       case ACTIVE =>
         logWarning("StreamingContext has already been started")
       case STOPPED =>

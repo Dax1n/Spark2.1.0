@@ -26,6 +26,9 @@ import org.apache.spark.streaming.dstream.{DStream, InputDStream, ReceiverInputD
 import org.apache.spark.streaming.scheduler.Job
 import org.apache.spark.util.Utils
 
+/**
+  * 处理DStream之间的依赖关系
+  */
 final private[streaming] class DStreamGraph extends Serializable with Logging {
 
   private val inputStreams = new ArrayBuffer[InputDStream[_]]()

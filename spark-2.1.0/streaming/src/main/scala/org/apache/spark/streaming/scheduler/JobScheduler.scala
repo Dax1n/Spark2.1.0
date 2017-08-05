@@ -41,6 +41,7 @@ private[scheduler] case class ErrorReported(msg: String, e: Throwable) extends J
 /**
  * This class schedules jobs to be run on Spark. It uses the JobGenerator to generate
  * the jobs and runs them using a thread pool.
+  * <br><br>调度流作业在spark上运行，使用JobGenerator产生job并在线程池中运行
  */
 private[streaming]
 class JobScheduler(val ssc: StreamingContext) extends Logging {
@@ -53,6 +54,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
     ThreadUtils.newDaemonFixedThreadPool(numConcurrentJobs, "streaming-job-executor")
   private val jobGenerator = new JobGenerator(this)
   val clock = jobGenerator.clock
+
   val listenerBus = new StreamingListenerBus(ssc.sparkContext.listenerBus)
 
   // These two are created only when scheduler starts.
@@ -83,6 +85,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
     } ssc.addStreamingListener(rateController)
 
     listenerBus.start()
+    //TODO ReceiverTracker初始化
     receiverTracker = new ReceiverTracker(ssc)
     inputInfoTracker = new InputInfoTracker(ssc)
 
@@ -98,7 +101,9 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
       ssc.graph.batchDuration.milliseconds,
       clock)
     executorAllocationManager.foreach(ssc.addStreamingListener)
+    //TODO ReceiverTracker启动
     receiverTracker.start()
+    //TODO jobGenerator启动
     jobGenerator.start()
     executorAllocationManager.foreach(_.start())
     logInfo("Started JobScheduler")

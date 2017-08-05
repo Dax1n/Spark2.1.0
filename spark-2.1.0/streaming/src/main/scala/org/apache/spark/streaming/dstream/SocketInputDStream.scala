@@ -30,6 +30,16 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.receiver.Receiver
 import org.apache.spark.util.NextIterator
 
+/**
+  *
+  * @param _ssc Streaming context that will execute this input stream
+  * @param host
+  * @param port
+  * @param bytesToObjects
+  * @param storageLevel
+  * @param ev$1
+  * @tparam T Class type of the object of this stream
+  */
 private[streaming]
 class SocketInputDStream[T: ClassTag](
     _ssc: StreamingContext,
@@ -39,6 +49,10 @@ class SocketInputDStream[T: ClassTag](
     storageLevel: StorageLevel
   ) extends ReceiverInputDStream[T](_ssc) {
 
+  /**
+    *
+    * @return  new SocketReceiver(host, port, bytesToObjects, storageLevel)
+    */
   def getReceiver(): Receiver[T] = {
     new SocketReceiver(host, port, bytesToObjects, storageLevel)
   }
@@ -88,6 +102,7 @@ class SocketReceiver[T: ClassTag](
   def receive() {
     try {
       val iterator = bytesToObjects(socket.getInputStream())
+
       while(!isStopped && iterator.hasNext) {
         store(iterator.next())
       }
@@ -116,8 +131,14 @@ object SocketReceiver  {
   def bytesToLines(inputStream: InputStream): Iterator[String] = {
     val dataInputStream = new BufferedReader(
       new InputStreamReader(inputStream, StandardCharsets.UTF_8))
+
     new NextIterator[String] {
+      /**
+        * 当没有数据可获得时候发生阻塞
+        * @return U, or set 'finished' when done
+        */
       protected override def getNext() = {
+        //TODO 当nc控制台没有数据输入时候此处会阻塞
         val nextValue = dataInputStream.readLine()
         if (nextValue == null) {
           finished = true

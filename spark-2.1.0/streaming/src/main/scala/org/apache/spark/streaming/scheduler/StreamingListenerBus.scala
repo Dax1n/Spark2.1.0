@@ -25,6 +25,7 @@ import org.apache.spark.util.ListenerBus
  * Streaming events as WrappedStreamingListenerEvent and send them to Spark listener bus. It also
  * registers itself with Spark listener bus, so that it can receive WrappedStreamingListenerEvents,
  * unwrap them as StreamingListenerEvent and dispatch them to StreamingListeners.
+  *
  */
 private[streaming] class StreamingListenerBus(sparkListenerBus: LiveListenerBus)
   extends SparkListener with ListenerBus[StreamingListener, StreamingListenerEvent] {

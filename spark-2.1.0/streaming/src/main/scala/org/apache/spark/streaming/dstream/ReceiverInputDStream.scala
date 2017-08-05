@@ -29,21 +29,22 @@ import org.apache.spark.streaming.scheduler.rate.RateEstimator
 import org.apache.spark.streaming.util.WriteAheadLogUtils
 
 /**
- * Abstract class for defining any [[org.apache.spark.streaming.dstream.InputDStream]]
- * that has to start a receiver on worker nodes to receive external data.
- * Specific implementations of ReceiverInputDStream must
- * define [[getReceiver]] function that gets the receiver object of type
- * [[org.apache.spark.streaming.receiver.Receiver]] that will be sent
- * to the workers to receive data.
- * @param _ssc Streaming context that will execute this input stream
- * @tparam T Class type of the object of this stream
- */
+  * Abstract class for defining any [[org.apache.spark.streaming.dstream.InputDStream]]
+  * that has to start a receiver on worker nodes to receive external data.
+  * Specific implementations of ReceiverInputDStream must
+  * define [[getReceiver]] function that gets the receiver object of type
+  * [[org.apache.spark.streaming.receiver.Receiver]] that will be sent
+  * to the workers to receive data.
+  *<br><br>所有基于Receiver模式的DStream都是ReceiverInputDStream的子类<br><br>
+  * @param _ssc Streaming context that will execute this input stream
+  * @tparam T Class type of the object of this stream
+  */
 abstract class ReceiverInputDStream[T: ClassTag](_ssc: StreamingContext)
   extends InputDStream[T](_ssc) {
 
   /**
-   * Asynchronously maintains & sends new rate limits to the receiver through the receiver tracker.
-   */
+    * Asynchronously maintains & sends new rate limits to the receiver through the receiver tracker.
+    */
   override protected[streaming] val rateController: Option[RateController] = {
     if (RateController.isBackPressureEnabled(ssc.conf)) {
       Some(new ReceiverRateController(id, RateEstimator.create(ssc.conf, ssc.graph.batchDuration)))
@@ -53,10 +54,12 @@ abstract class ReceiverInputDStream[T: ClassTag](_ssc: StreamingContext)
   }
 
   /**
-   * Gets the receiver object that will be sent to the worker nodes
-   * to receive data. This method needs to defined by any specific implementation
-   * of a ReceiverInputDStream.
-   */
+    * Gets the receiver object that will be sent to the worker nodes
+    * to receive data. This method needs to defined by any specific implementation
+    * of a ReceiverInputDStream.
+    * <br><br><br><br>
+    * 在org.apache.spark.streaming.scheduler.ReceiverTracker#launchReceivers()中被调用
+    */
   def getReceiver(): Receiver[T]
 
   // Nothing to start or stop as both taken care of by the ReceiverTracker.
@@ -65,7 +68,7 @@ abstract class ReceiverInputDStream[T: ClassTag](_ssc: StreamingContext)
   def stop() {}
 
   /**
-   * Generates RDDs with blocks received by the receiver of this stream. */
+    * Generates RDDs with blocks received by the receiver of this stream. */
   override def compute(validTime: Time): Option[RDD[T]] = {
     val blockRDD = {
 
@@ -94,15 +97,23 @@ abstract class ReceiverInputDStream[T: ClassTag](_ssc: StreamingContext)
   private[streaming] def createBlockRDD(time: Time, blockInfos: Seq[ReceivedBlockInfo]): RDD[T] = {
 
     if (blockInfos.nonEmpty) {
-      val blockIds = blockInfos.map { _.blockId.asInstanceOf[BlockId] }.toArray
+      val blockIds = blockInfos.map {
+        _.blockId.asInstanceOf[BlockId]
+      }.toArray
 
       // Are WAL record handles present with all the blocks
-      val areWALRecordHandlesPresent = blockInfos.forall { _.walRecordHandleOption.nonEmpty }
+      val areWALRecordHandlesPresent = blockInfos.forall {
+        _.walRecordHandleOption.nonEmpty
+      }
 
       if (areWALRecordHandlesPresent) {
         // If all the blocks have WAL record handle, then create a WALBackedBlockRDD
-        val isBlockIdValid = blockInfos.map { _.isBlockIdValid() }.toArray
-        val walRecordHandles = blockInfos.map { _.walRecordHandleOption.get }.toArray
+        val isBlockIdValid = blockInfos.map {
+          _.isBlockIdValid()
+        }.toArray
+        val walRecordHandles = blockInfos.map {
+          _.walRecordHandleOption.get
+        }.toArray
         new WriteAheadLogBackedBlockRDD[T](
           ssc.sparkContext, blockIds, walRecordHandles, isBlockIdValid)
       } else {
@@ -139,12 +150,13 @@ abstract class ReceiverInputDStream[T: ClassTag](_ssc: StreamingContext)
   }
 
   /**
-   * A RateController that sends the new rate to receivers, via the receiver tracker.
-   */
+    * A RateController that sends the new rate to receivers, via the receiver tracker.
+    */
   private[streaming] class ReceiverRateController(id: Int, estimator: RateEstimator)
-      extends RateController(id, estimator) {
+    extends RateController(id, estimator) {
     override def publish(rate: Long): Unit =
       ssc.scheduler.receiverTracker.sendRateUpdate(id, rate)
   }
+
 }
 

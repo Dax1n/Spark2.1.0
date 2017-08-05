@@ -114,6 +114,8 @@ abstract class Receiver[T](val storageLevel: StorageLevel) extends Serializable 
    * Store a single item of received data to Spark's memory.
    * These single items will be aggregated together into data blocks before
    * being pushed into Spark's memory.
+    * <br><br><br>
+    *   将接收到的单个记录存储到Spark内存中，在存储到Spark内存之前这些单个记录会被聚集到一起组成数据块
    */
   def store(dataItem: T) {
     supervisor.pushSingle(dataItem)

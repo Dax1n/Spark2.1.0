@@ -27,6 +27,10 @@ import org.apache.spark.scheduler._
 import org.apache.spark.streaming.{StreamingContext, Time}
 import org.apache.spark.streaming.scheduler._
 
+/**
+  * 监听Streaming Job，用于更新Spark Web UI的StreamingTab
+  * @param ssc
+  */
 private[streaming] class StreamingJobProgressListener(ssc: StreamingContext)
   extends SparkListener with StreamingListener {
 

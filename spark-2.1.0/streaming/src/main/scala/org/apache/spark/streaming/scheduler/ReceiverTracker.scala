@@ -128,6 +128,9 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
 
   // endpoint is created when generator starts.
   // This not being null means the tracker has been started and not stopped
+  /**
+    * ReceiverTrackerEndpoint的引用
+    */
   private var endpoint: RpcEndpointRef = null
 
   private val schedulingPolicy = new ReceiverSchedulingPolicy()
@@ -441,6 +444,8 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
    * worker nodes as a parallel collection, and runs them.
    */
   private def launchReceivers(): Unit = {
+
+    //TODO 获取ReceiverInputDStream中的Receiver
     val receivers = receiverInputStreams.map { nis =>
       val rcvr = nis.getReceiver()
       rcvr.setReceiverId(nis.id)
@@ -450,6 +455,7 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
     runDummySparkJob()
 
     logInfo("Starting " + receivers.length + " receivers")
+    //TODO endpoint为ReceiverTrackerEndpoint的引用
     endpoint.send(StartAllReceivers(receivers))
   }
 
@@ -483,6 +489,7 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
           receiverPreferredLocations(receiver.streamId) = receiver.preferredLocation
           startReceiver(receiver, executors)
         }
+
       case RestartReceiver(receiver) =>
         // Old scheduled executors minus the ones that are not active any more
         val oldScheduledExecutors = getStoredScheduledExecutors(receiver.streamId)

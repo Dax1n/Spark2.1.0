@@ -30,22 +30,28 @@ import org.apache.spark.storage.StreamBlockId
 import org.apache.spark.util.{ThreadUtils, Utils}
 
 /**
- * Abstract class that is responsible for supervising a Receiver in the worker.
- * It provides all the necessary interfaces for handling the data received by the receiver.
- */
+  * Abstract class that is responsible for supervising(监督) a Receiver in the worker.
+  * It provides all the necessary interfaces for handling the data received by the receiver.
+  * <br><br>
+  * ReceiverSupervisor负责监督worker的Receiver，并且提供必要的接口：处理接收到的数据
+  */
 private[streaming] abstract class ReceiverSupervisor(
-    receiver: Receiver[_],
-    conf: SparkConf
-  ) extends Logging {
+                                                      receiver: Receiver[_],
+                                                      conf: SparkConf
+                                                    ) extends Logging {
 
   /** Enumeration to identify current state of the Receiver */
   object ReceiverState extends Enumeration {
     type CheckpointState = Value
     val Initialized, Started, Stopped = Value
   }
+
   import ReceiverState._
 
   // Attach the supervisor to the receiver
+  /**
+    * 绑定supervisor到receiver上
+    */
   receiver.attachSupervisor(this)
 
   private val futureExecutionContext = ExecutionContext.fromExecutorService(
@@ -74,56 +80,56 @@ private[streaming] abstract class ReceiverSupervisor(
 
   /** Store the bytes of received data as a data block into Spark's memory. */
   def pushBytes(
-      bytes: ByteBuffer,
-      optionalMetadata: Option[Any],
-      optionalBlockId: Option[StreamBlockId]
-    ): Unit
+                 bytes: ByteBuffer,
+                 optionalMetadata: Option[Any],
+                 optionalBlockId: Option[StreamBlockId]
+               ): Unit
 
   /** Store an iterator of received data as a data block into Spark's memory. */
   def pushIterator(
-      iterator: Iterator[_],
-      optionalMetadata: Option[Any],
-      optionalBlockId: Option[StreamBlockId]
-    ): Unit
+                    iterator: Iterator[_],
+                    optionalMetadata: Option[Any],
+                    optionalBlockId: Option[StreamBlockId]
+                  ): Unit
 
   /** Store an ArrayBuffer of received data as a data block into Spark's memory. */
   def pushArrayBuffer(
-      arrayBuffer: ArrayBuffer[_],
-      optionalMetadata: Option[Any],
-      optionalBlockId: Option[StreamBlockId]
-    ): Unit
+                       arrayBuffer: ArrayBuffer[_],
+                       optionalMetadata: Option[Any],
+                       optionalBlockId: Option[StreamBlockId]
+                     ): Unit
 
   /**
-   * Create a custom [[BlockGenerator]] that the receiver implementation can directly control
-   * using their provided [[BlockGeneratorListener]].
-   *
-   * Note: Do not explicitly start or stop the `BlockGenerator`, the `ReceiverSupervisorImpl`
-   * will take care of it.
-   */
+    * Create a custom [[BlockGenerator]] that the receiver implementation can directly control
+    * using their provided [[BlockGeneratorListener]].
+    *
+    * Note: Do not explicitly start or stop the `BlockGenerator`, the `ReceiverSupervisorImpl`
+    * will take care of it.
+    */
   def createBlockGenerator(blockGeneratorListener: BlockGeneratorListener): BlockGenerator
 
   /** Report errors. */
   def reportError(message: String, throwable: Throwable): Unit
 
   /**
-   * Called when supervisor is started.
-   * Note that this must be called before the receiver.onStart() is called to ensure
-   * things like [[BlockGenerator]]s are started before the receiver starts sending data.
-   */
-  protected def onStart() { }
+    * Called when supervisor is started.
+    * Note that this must be called before the receiver.onStart() is called to ensure
+    * things like [[BlockGenerator]]s are started before the receiver starts sending data.
+    */
+  protected def onStart() {}
 
   /**
-   * Called when supervisor is stopped.
-   * Note that this must be called after the receiver.onStop() is called to ensure
-   * things like [[BlockGenerator]]s are cleaned up after the receiver stops sending data.
-   */
-  protected def onStop(message: String, error: Option[Throwable]) { }
+    * Called when supervisor is stopped.
+    * Note that this must be called after the receiver.onStop() is called to ensure
+    * things like [[BlockGenerator]]s are cleaned up after the receiver stops sending data.
+    */
+  protected def onStop(message: String, error: Option[Throwable]) {}
 
   /** Called when receiver is started. Return true if the driver accepts us */
   protected def onReceiverStart(): Boolean
 
   /** Called when receiver is stopped */
-  protected def onReceiverStop(message: String, error: Option[Throwable]) { }
+  protected def onReceiverStop(message: String, error: Option[Throwable]) {}
 
   /** Start the supervisor */
   def start() {

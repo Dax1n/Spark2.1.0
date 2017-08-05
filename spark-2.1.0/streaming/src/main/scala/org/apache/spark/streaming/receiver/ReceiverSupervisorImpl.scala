@@ -110,6 +110,7 @@ private[streaming] class ReceiverSupervisorImpl(
       pushArrayBuffer(arrayBuffer, None, Some(blockId))
     }
   }
+  //类型：BlockGenerator
   private val defaultBlockGenerator = createBlockGenerator(defaultBlockGeneratorListener)
 
   /** Get the current rate limit of the default block generator */
