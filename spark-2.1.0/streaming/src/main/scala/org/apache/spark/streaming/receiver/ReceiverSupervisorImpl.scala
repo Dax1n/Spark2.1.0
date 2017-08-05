@@ -116,8 +116,12 @@ private[streaming] class ReceiverSupervisorImpl(
   /** Get the current rate limit of the default block generator */
   override private[streaming] def getCurrentRateLimit: Long = defaultBlockGenerator.getCurrentLimit
 
-  /** Push a single record of received data into block generator. */
+  /**
+    * Push a single record of received data into block generator.
+    * @param data 为接收到的一条记录
+    */
   def pushSingle(data: Any) {
+    //TODO 负责将接收到的数据组装成Block
     defaultBlockGenerator.addData(data)
   }
 
@@ -156,10 +160,12 @@ private[streaming] class ReceiverSupervisorImpl(
     ) {
     val blockId = blockIdOption.getOrElse(nextBlockId)
     val time = System.currentTimeMillis
+    //TODO 进行数据存储
     val blockStoreResult = receivedBlockHandler.storeBlock(blockId, receivedBlock)
     logDebug(s"Pushed block $blockId in ${(System.currentTimeMillis - time)} ms")
     val numRecords = blockStoreResult.numRecords
     val blockInfo = ReceivedBlockInfo(streamId, numRecords, metadataOption, blockStoreResult)
+    //TODO 向Driver进行汇报
     trackerEndpoint.askWithRetry[Boolean](AddBlock(blockInfo))
     logDebug(s"Reported block $blockId")
   }

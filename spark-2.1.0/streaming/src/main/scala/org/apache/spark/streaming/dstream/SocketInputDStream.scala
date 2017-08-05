@@ -58,6 +58,15 @@ class SocketInputDStream[T: ClassTag](
   }
 }
 
+/**
+  *
+  * @param host
+  * @param port
+  * @param bytesToObjects
+  * @param storageLevel
+  * @param ev$1
+  * @tparam T
+  */
 private[streaming]
 class SocketReceiver[T: ClassTag](
     host: String,
@@ -101,9 +110,11 @@ class SocketReceiver[T: ClassTag](
   /** Create a socket connection and receive data until receiver is stopped */
   def receive() {
     try {
+      //TODO bytesToObjects函数中，当没有数据可读时候发生阻塞
       val iterator = bytesToObjects(socket.getInputStream())
 
       while(!isStopped && iterator.hasNext) {
+        //TODO store方法是来至于：org.apache.spark.streaming.receiver.Receiver.store(T)
         store(iterator.next())
       }
       if (!isStopped()) {

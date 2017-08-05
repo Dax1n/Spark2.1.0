@@ -585,6 +585,7 @@ class StreamingContext private[streaming] (
               sparkContext.clearJobGroup()
               sparkContext.setLocalProperty(SparkContext.SPARK_JOB_INTERRUPT_ON_CANCEL, "false")
               savedProperties.set(SerializationUtils.clone(sparkContext.localProperties.get()))
+              //TODO JobScheduler
               scheduler.start()
             }
             state = StreamingContextState.ACTIVE

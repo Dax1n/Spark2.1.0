@@ -30,8 +30,7 @@ import org.apache.spark.util.{Clock, EventLoop, ManualClock, Utils}
 private[scheduler] sealed trait JobGeneratorEvent
 private[scheduler] case class GenerateJobs(time: Time) extends JobGeneratorEvent
 private[scheduler] case class ClearMetadata(time: Time) extends JobGeneratorEvent
-private[scheduler] case class DoCheckpoint(
-    time: Time, clearCheckpointDataLater: Boolean) extends JobGeneratorEvent
+private[scheduler] case class DoCheckpoint(time: Time, clearCheckpointDataLater: Boolean) extends JobGeneratorEvent
 private[scheduler] case class ClearCheckpointData(time: Time) extends JobGeneratorEvent
 
 /**

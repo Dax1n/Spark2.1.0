@@ -158,8 +158,9 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
     }
 
     if (!receiverInputStreams.isEmpty) {
-      endpoint = ssc.env.rpcEnv.setupEndpoint(
-        "ReceiverTracker", new ReceiverTrackerEndpoint(ssc.env.rpcEnv))
+
+      endpoint = ssc.env.rpcEnv.setupEndpoint("ReceiverTracker", new ReceiverTrackerEndpoint(ssc.env.rpcEnv))
+      //TODO 启动Receiver
       if (!skipReceiverLaunch) launchReceivers()
       logInfo("ReceiverTracker started")
       trackerState = Started
@@ -442,6 +443,8 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
   /**
    * Get the receivers from the ReceiverInputDStreams, distributes them to the
    * worker nodes as a parallel collection, and runs them.
+    * <br><br>
+    * org.apache.spark.streaming.scheduler.ReceiverTracker#launchReceivers()
    */
   private def launchReceivers(): Unit = {
 
@@ -455,7 +458,8 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
     runDummySparkJob()
 
     logInfo("Starting " + receivers.length + " receivers")
-    //TODO endpoint为ReceiverTrackerEndpoint的引用
+    //TODO endpoint为ReceiverTracker的Endpoint引用
+    //TODO 就是给自己发送消息
     endpoint.send(StartAllReceivers(receivers))
   }
 
@@ -481,12 +485,14 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
 
     override def receive: PartialFunction[Any, Unit] = {
       // Local messages
+      //TODO 处理消息
       case StartAllReceivers(receivers) =>
         val scheduledLocations = schedulingPolicy.scheduleReceivers(receivers, getExecutors)
         for (receiver <- receivers) {
           val executors = scheduledLocations(receiver.streamId)
           updateReceiverScheduledExecutors(receiver.streamId, executors)
           receiverPreferredLocations(receiver.streamId) = receiver.preferredLocation
+          //TODO 启动receiver
           startReceiver(receiver, executors)
         }
 
@@ -609,6 +615,7 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
           if (TaskContext.get().attemptNumber() == 0) {
             val receiver = iterator.next()
             assert(iterator.hasNext == false)
+            //TODO 完成ReceiverSupervisorImpl的创建
             val supervisor = new ReceiverSupervisorImpl(
               receiver, SparkEnv.get, serializableHadoopConf.value, checkpointDirOption)
             supervisor.start()

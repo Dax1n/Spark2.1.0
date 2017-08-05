@@ -41,7 +41,7 @@ private[scheduler] case class ErrorReported(msg: String, e: Throwable) extends J
 /**
  * This class schedules jobs to be run on Spark. It uses the JobGenerator to generate
  * the jobs and runs them using a thread pool.
-  * <br><br>调度流作业在spark上运行，使用JobGenerator产生job并在线程池中运行
+  * <br><br>JobScheduler调度流作业在spark上运行，使用JobGenerator产生job并在线程池中运行
  */
 private[streaming]
 class JobScheduler(val ssc: StreamingContext) extends Logging {
@@ -67,6 +67,9 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
 
   private var eventLoop: EventLoop[JobSchedulerEvent] = null
 
+  /**
+    * org.apache.spark.streaming.scheduler.#start()
+    */
   def start(): Unit = synchronized {
     if (eventLoop != null) return // scheduler has already been started
 
@@ -87,6 +90,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
     listenerBus.start()
     //TODO ReceiverTracker初始化
     receiverTracker = new ReceiverTracker(ssc)
+    //TODO 主要用来统计输入数据集的统计信息，用来进行UI显示和监控
     inputInfoTracker = new InputInfoTracker(ssc)
 
     val executorAllocClient: ExecutorAllocationClient = ssc.sparkContext.schedulerBackend match {
@@ -101,7 +105,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
       ssc.graph.batchDuration.milliseconds,
       clock)
     executorAllocationManager.foreach(ssc.addStreamingListener)
-    //TODO ReceiverTracker启动
+    //TODO 重点：ReceiverTracker启动(完成ReceiverSupvisor的创建一起Receiver的启动)
     receiverTracker.start()
     //TODO jobGenerator启动
     jobGenerator.start()
