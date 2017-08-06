@@ -130,6 +130,7 @@ object KafkaUtils extends Logging {
                                 locationStrategy: LocationStrategy,
                                 consumerStrategy: ConsumerStrategy[K, V]
                               ): InputDStream[ConsumerRecord[K, V]] = {
+    //TODO 控制读取Kafka分区速率的参数 (可以使用SparkConf配置spark.streaming.kafka.maxRatePerPartition属性指定每一个分区读取的记录)
     val ppc = new DefaultPerPartitionConfig(ssc.sparkContext.getConf)
     createDirectStream[K, V](ssc, locationStrategy, consumerStrategy, ppc)
   }
@@ -156,6 +157,7 @@ object KafkaUtils extends Logging {
                                 consumerStrategy: ConsumerStrategy[K, V],
                                 perPartitionConfig: PerPartitionConfig
                               ): InputDStream[ConsumerRecord[K, V]] = {
+    //TODO 直接创建DirectKafkaInputDStream并返回
     new DirectKafkaInputDStream[K, V](ssc, locationStrategy, consumerStrategy, perPartitionConfig)
   }
 

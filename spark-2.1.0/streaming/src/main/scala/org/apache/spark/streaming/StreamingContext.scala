@@ -588,6 +588,8 @@ class StreamingContext private[streaming] (
               //TODO JobScheduler
               scheduler.start()
             }
+
+
             state = StreamingContextState.ACTIVE
           } catch {
             case NonFatal(e) =>

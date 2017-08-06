@@ -48,8 +48,10 @@ abstract class ConsumerStrategy[K, V] {
 
   /**
    * Must return a fully configured Kafka Consumer, including subscribed or assigned topics.
+    * <br><br>返回一个配置好的Consumer，包含订阅的或指定的topics<br><br>
    * See <a href="http://kafka.apache.org/documentation.html#newconsumerapi">Kafka docs</a>.
    * This consumer will be used on the driver to query for offsets only, not messages.
+    * <br><br>这个Consumer用在Driver上仅仅查询offset，不查询messages<br><br>
    * The consumer must be returned in a state that it is safe to call poll(0) on.
    * @param currentOffsets A map from TopicPartition to offset, indicating how far the driver
    * has successfully read.  Will be empty on initial start, possibly non-empty on restart from

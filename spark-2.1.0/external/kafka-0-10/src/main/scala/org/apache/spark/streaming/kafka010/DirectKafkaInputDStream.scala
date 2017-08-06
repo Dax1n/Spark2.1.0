@@ -56,22 +56,30 @@ import org.apache.spark.streaming.scheduler.rate.RateEstimator
  */
 private[spark] class DirectKafkaInputDStream[K, V](
     _ssc: StreamingContext,
-    locationStrategy: LocationStrategy,
-    consumerStrategy: ConsumerStrategy[K, V],
-    ppc: PerPartitionConfig
+    locationStrategy: LocationStrategy,  //TODO 消费的位置策略信息
+    consumerStrategy: ConsumerStrategy[K, V], //TODO 包含topic信息和kafka配置信息
+    ppc: PerPartitionConfig //TODO 控制Kafka分区读取速率的参数
   ) extends InputDStream[ConsumerRecord[K, V]](_ssc) with Logging with CanCommitOffsets {
 
+  /**
+    * 用户配置的kafka配置
+    */
   val executorKafkaParams = {
     val ekp = new ju.HashMap[String, Object](consumerStrategy.executorKafkaParams)
     KafkaUtils.fixKafkaParams(ekp)
     ekp
   }
 
+  /**
+    * 当前的消费偏移信息，key为topic和partition的封装，value为offset值<br><br>
+    * var currentOffsets = Map[TopicPartition, Long]()
+    */
   protected var currentOffsets = Map[TopicPartition, Long]()
 
   @transient private var kc: Consumer[K, V] = null
   def consumer(): Consumer[K, V] = this.synchronized {
     if (null == kc) {
+      //
       kc = consumerStrategy.onStart(currentOffsets.mapValues(l => new java.lang.Long(l)).asJava)
     }
     kc
@@ -198,9 +206,12 @@ private[spark] class DirectKafkaInputDStream[K, V](
     parts.map(tp => tp -> c.position(tp)).toMap
   }
 
-  // limits the maximum number of messages per partition
-  protected def clamp(
-    offsets: Map[TopicPartition, Long]): Map[TopicPartition, Long] = {
+  /**
+    * limits the maximum number of messages per partition
+    * @param offsets
+    * @return
+    */
+  protected def clamp(offsets: Map[TopicPartition, Long]): Map[TopicPartition, Long] = {//clamp ：夹紧，夹住; 锁住; 把（砖等）堆高，堆存; 脚步很重地走;
 
     maxMessagesPerPartition(offsets).map { mmp =>
       mmp.map { case (tp, messages) =>
@@ -210,16 +221,25 @@ private[spark] class DirectKafkaInputDStream[K, V](
     }.getOrElse(offsets)
   }
 
+  /**
+    *
+    * Method that generates an RDD for the given time
+    *
+    * @param validTime
+    * @return  Option[KafkaRDD[K, V]]
+    */
   override def compute(validTime: Time): Option[KafkaRDD[K, V]] = {
+
     val untilOffsets = clamp(latestOffsets())
     val offsetRanges = untilOffsets.map { case (tp, uo) =>
       val fo = currentOffsets(tp)
       OffsetRange(tp.topic, tp.partition, fo, uo)
     }
-    val rdd = new KafkaRDD[K, V](
-      context.sparkContext, executorKafkaParams, offsetRanges.toArray, getPreferredHosts, true)
+    //TODO KafkaRDD构造函数的第三个参数比较重要：该参数定义了Kafka分区属于当前RDD数据的offset值
+    val rdd = new KafkaRDD[K, V](context.sparkContext, executorKafkaParams, offsetRanges.toArray, getPreferredHosts, true)
 
     // Report the record number and metadata of this batch interval to InputInfoTracker.
+    //TODO 汇报当前记录数目和元数据信息到InputInfoTracker
     val description = offsetRanges.filter { offsetRange =>
       // Don't display empty ranges.
       offsetRange.fromOffset != offsetRange.untilOffset
@@ -239,6 +259,7 @@ private[spark] class DirectKafkaInputDStream[K, V](
     Some(rdd)
   }
 
+  //Method called to start receiving data.
   override def start(): Unit = {
     val c = consumer
     paranoidPoll(c)

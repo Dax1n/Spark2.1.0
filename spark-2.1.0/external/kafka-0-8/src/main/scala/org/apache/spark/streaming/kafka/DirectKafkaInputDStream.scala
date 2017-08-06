@@ -192,6 +192,7 @@ class DirectKafkaInputDStream[
     Some(rdd)
   }
 
+  //Method called to start receiving data.
   override def start(): Unit = {
   }
 
