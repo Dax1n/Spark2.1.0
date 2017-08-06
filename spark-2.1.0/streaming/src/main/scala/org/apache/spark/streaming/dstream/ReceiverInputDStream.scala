@@ -81,6 +81,7 @@ abstract class ReceiverInputDStream[T: ClassTag](_ssc: StreamingContext)
         // Otherwise, ask the tracker for all the blocks that have been allocated to this stream
         // for this batch
         val receiverTracker = ssc.scheduler.receiverTracker
+        //TODO receiverTracker是driver端的receiver跟踪器
         val blockInfos = receiverTracker.getBlocksOfBatch(validTime).getOrElse(id, Seq.empty)
 
         // Register the input blocks information into InputInfoTracker
