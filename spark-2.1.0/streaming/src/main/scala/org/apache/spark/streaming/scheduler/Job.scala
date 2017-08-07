@@ -25,8 +25,7 @@ import org.apache.spark.util.{CallSite, Utils}
 /**
  * Class representing a Spark computation. It may contain multiple Spark jobs.
  */
-private[streaming]
-class Job(val time: Time, func: () => _) {
+private[streaming]  class Job(val time: Time, func: () => _) {
   private var _id: String = _
   private var _outputOpId: Int = _
   private var isSet = false

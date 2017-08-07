@@ -265,7 +265,8 @@ private[spark] class DirectKafkaInputDStream[K, V](
       "offsets" -> offsetRanges.toList,
       StreamInputInfo.METADATA_KEY_DESCRIPTION -> description)
     val inputInfo = StreamInputInfo(id, rdd.count, metadata)
-    ssc.scheduler.inputInfoTracker.reportInfo(validTime, inputInfo) //TODO InputInfoTracker是运行在Driver端,负责计算数据的监控
+    //TODO InputInfoTracker是运行在Driver端,负责计算数据的监控
+    ssc.scheduler.inputInfoTracker.reportInfo(validTime, inputInfo)
     //将当前消费过的最新偏移设置到currentOffsets中
     currentOffsets = untilOffsets
     commitAll()

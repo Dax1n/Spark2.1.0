@@ -1848,8 +1848,7 @@ U
  */
 object RDD {
 
-  private[spark] val CHECKPOINT_ALL_MARKED_ANCESTORS =
-    "spark.checkpoint.checkpointAllMarkedAncestors"
+  private[spark] val CHECKPOINT_ALL_MARKED_ANCESTORS = "spark.checkpoint.checkpointAllMarkedAncestors"
 
   // The following implicit functions were in SparkContext before 1.3 and users had to
   // `import SparkContext._` to enable them. Now we move them here to make the compiler find

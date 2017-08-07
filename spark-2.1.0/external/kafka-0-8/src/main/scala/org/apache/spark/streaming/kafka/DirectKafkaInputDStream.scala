@@ -164,14 +164,14 @@ class DirectKafkaInputDStream[
   }
 
   /**
-    * Method that generates an RDD for the given time
+    * 此compute是Kafka0.8版本的方法，更多注释见：org.apache.spark.streaming.kafka010.DirectKafkaInputDStream#compute(org.apache.spark.streaming.Time)
     * @param validTime
     * @return
     */
   override def compute(validTime: Time): Option[KafkaRDD[K, V, U, T, R]] = {
     //TODO org.apache.spark.streaming.kafka.DirectKafkaInputDStream.clamp重要方法，获取实际偏移地址
     val untilOffsets = clamp(latestLeaderOffsets(maxRetries))//TODO 此处获取的结束偏移
-    //TODO 创建KafkaRDD
+
     val rdd = KafkaRDD[K, V, U, T, R](
       context.sparkContext, kafkaParams, currentOffsets, untilOffsets, messageHandler)
 

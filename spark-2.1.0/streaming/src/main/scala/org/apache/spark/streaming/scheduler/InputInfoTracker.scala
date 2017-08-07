@@ -60,20 +60,24 @@ private[streaming] class InputInfoTracker(ssc: StreamingContext) extends Logging
 
   /**
     * Map to track all the InputInfo related to specific batch time and input stream.
+    * <br><br>batchTimeToInputInfos是HashMap数据结构，其中数据类型Key为Time，Value类型为HashMap
     */
   private val batchTimeToInputInfos = new mutable.HashMap[Time, mutable.HashMap[Int, StreamInputInfo]]
 
-  /** Report the input information with batch time to the tracker */
+  /** Report the input information with batch time to the tracker<br>
+    * 将时间为batchTime的StreamInputInfo存储到batchTimeToInputInfos中<br>
+    * 在DStream的子类的compute(org.apache.spark.streaming.Time)方法被调用，由于compute是生成rdd方法，因此需要向Driver的InputInfoTracker汇报
+    */
   def reportInfo(batchTime: Time, inputInfo: StreamInputInfo): Unit = synchronized {
 
     val inputInfos = batchTimeToInputInfos.getOrElseUpdate(batchTime, new mutable.HashMap[Int, StreamInputInfo]())
 
     if (inputInfos.contains(inputInfo.inputStreamId)) {
-      throw new IllegalStateException(s"Input stream ${inputInfo.inputStreamId} for batch" +
-        s"$batchTime is already added into InputInfoTracker, this is an illegal state")
+      throw new IllegalStateException(s"Input stream ${inputInfo.inputStreamId} for batch" + s"$batchTime is already added into InputInfoTracker, this is an illegal state")
     }
     inputInfos += ((inputInfo.inputStreamId, inputInfo))
-  }
+  } //reportInfo  end
+
 
   /** Get the all the input stream's information of specified batch time */
   def getInfo(batchTime: Time): Map[Int, StreamInputInfo] = synchronized {

@@ -36,13 +36,16 @@ private[scheduler] case class ClearCheckpointData(time: Time) extends JobGenerat
 /**
  * This class generates jobs from DStreams as well as drives checkpointing and cleaning
  * up DStream metadata.<br><br>
-  *   
+  *   生成job
  */
 private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Logging {
 
+  /**<br>StreamingContext*/
   private val ssc = jobScheduler.ssc
+  /**<br>SparkConf*/
   private val conf = ssc.conf
-  private val graph = ssc.graph
+  /**<br>对应于批处理的DAG*/
+  private val graph = ssc.graph//对应于批处理的DAG
 
   val clock = {
     val clockClass = ssc.sc.conf.get(
@@ -248,7 +251,9 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
       graph.generateJobs(time) // generate jobs using allocated block
     } match {
       case Success(jobs) =>
+        //TODO 获取到输入数据源的信息
         val streamIdToInputInfos = jobScheduler.inputInfoTracker.getInfo(time)
+        //TODO 提交作业
         jobScheduler.submitJobSet(JobSet(time, jobs, streamIdToInputInfos))
       case Failure(e) =>
         jobScheduler.reportError("Error generating jobs for time " + time, e)
