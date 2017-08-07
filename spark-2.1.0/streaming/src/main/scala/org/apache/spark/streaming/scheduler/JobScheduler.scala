@@ -44,7 +44,7 @@ private[scheduler] case class ErrorReported(msg: String, e: Throwable) extends J
 /**
   * This class schedules jobs to be run on Spark. It uses the JobGenerator to generate
   * the jobs and runs them using a thread pool.
-  * <br><br>JobScheduler调度流作业在spark上运行，使用JobGenerator产生job并在线程池中运行<br><br><br><br><br><br>
+  * <br><br>JobScheduler调度流作业在spark上运行(类似于Saprk批处理的DAGScheduler)，使用JobGenerator产生job并在线程池中运行<br><br><br><br><br><br>
   * 持有如下重点成员：<br>
   * 1：JobGenerator
   * 2：InputInfoTracker
@@ -56,8 +56,15 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
 
   // Use of ConcurrentHashMap.keySet later causes an odd runtime problem due to Java 7/8 diff
   // https://gist.github.com/AlainODea/1375759b8720a3f9f094
+  /**jobSets: java.util.Map[Time, JobSet] = new ConcurrentHashMap[Time, JobSet]*/
   private val jobSets: java.util.Map[Time, JobSet] = new ConcurrentHashMap[Time, JobSet]
+
+  /**控制job提交并发度(提交提交job的线程池的线程数目)，默认是1，即它只能一个一个提job*/
   private val numConcurrentJobs = ssc.conf.getInt("spark.streaming.concurrentJobs", 1)
+
+  /**
+    * jobExecutor = ThreadUtils.newDaemonFixedThreadPool(numConcurrentJobs, "streaming-job-executor")<br><br>负责提交作业的线程池
+    */
   private val jobExecutor = ThreadUtils.newDaemonFixedThreadPool(numConcurrentJobs, "streaming-job-executor")
 
 
@@ -83,6 +90,9 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
 
   private var executorAllocationManager: Option[ExecutorAllocationManager] = None
 
+  /**
+    * 负责job的启动和异常信息处理的时间循环处理器（其实现内部就是一个线程）
+    */
   private var eventLoop: EventLoop[JobSchedulerEvent] = null
 
   /**
@@ -93,7 +103,8 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
 
     logDebug("Starting JobScheduler")
     eventLoop = new EventLoop[JobSchedulerEvent]("JobScheduler") {
-      override protected def onReceive(event: JobSchedulerEvent): Unit = processEvent(event) //TODO JobScheduler的重点方法，负责job的启动和异常信息处理
+      //TODO JobScheduler的重点方法，负责job的启动和异常信息处理
+      override protected def onReceive(event: JobSchedulerEvent): Unit = processEvent(event)
 
       override protected def onError(e: Throwable): Unit = reportError("Error in job scheduler", e)
     }
@@ -171,7 +182,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
     eventLoop.stop()
     eventLoop = null
     logInfo("Stopped JobScheduler")
-  }
+  }// stop end
 
   def submitJobSet(jobSet: JobSet) {
     if (jobSet.jobs.isEmpty) {
@@ -179,6 +190,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
     } else {
       listenerBus.post(StreamingListenerBatchSubmitted(jobSet.toBatchInfo))
       jobSets.put(jobSet.time, jobSet)
+      //TODO 线程池jobExecutor执行JobHandler任务（JobHandler是提交job的任务）
       jobSet.jobs.foreach(job => jobExecutor.execute(new JobHandler(job)))
       logInfo("Added jobs for time " + jobSet.time)
     }
@@ -260,6 +272,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
     PythonDStream.stopStreamingContextIfPythonProcessIsDead(e)
   }
 
+  /**实现Runnable接口的方法，负责提交job作业*/
   private class JobHandler(job: Job) extends Runnable with Logging {
 
     import JobScheduler._
@@ -286,11 +299,13 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
         // it's possible that when `post` is called, `eventLoop` happens to null.
         var _eventLoop = eventLoop
         if (_eventLoop != null) {
+          //TODO 发送消息start作业，并没有实际触发作业
           _eventLoop.post(JobStarted(job, clock.getTimeMillis()))
           // Disable checks for existing output directories in jobs launched by the streaming
           // scheduler, since we may need to write output to an existing directory during checkpoint
           // recovery; see SPARK-4835 for more details.
           PairRDDFunctions.disableOutputSpecValidation.withValue(true) {
+            //TODO 真正触发job到集群执行，Job封装计算逻辑
             job.run()
           }
           _eventLoop = eventLoop
@@ -303,7 +318,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
       } finally {
         ssc.sparkContext.setLocalProperties(oldProps)
       }
-    }
+    }//run方法定义结束
   }
 
 }

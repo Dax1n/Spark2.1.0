@@ -35,7 +35,9 @@ private[scheduler] case class ClearCheckpointData(time: Time) extends JobGenerat
 
 /**
  * This class generates jobs from DStreams as well as drives checkpointing and cleaning
- * up DStream metadata.<br><br>
+ * up DStream metadata.<br>
+  *   <br>JobGenerator持有JobScheduler的引用，因此也有InputTracker的引用<br>
+  *   <br>
   *   生成job
  */
 private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Logging {
@@ -44,7 +46,7 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
   private val ssc = jobScheduler.ssc
   /**<br>SparkConf*/
   private val conf = ssc.conf
-  /**<br>对应于批处理的DAG*/
+  /**<br> DStreamGraph类似于于批处理的DAG*/
   private val graph = ssc.graph//对应于批处理的DAG
 
   val clock = {
@@ -248,6 +250,7 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
     ssc.sparkContext.setLocalProperty(RDD.CHECKPOINT_ALL_MARKED_ANCESTORS, "true")
     Try {
       jobScheduler.receiverTracker.allocateBlocksToBatch(time) // allocate received blocks to batch
+      //TODO 根据DStreamGraph生成Job集合
       graph.generateJobs(time) // generate jobs using allocated block
     } match {
       case Success(jobs) =>
