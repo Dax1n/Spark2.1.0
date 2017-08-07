@@ -62,6 +62,8 @@ case class StreamingListenerReceiverStopped(receiverInfo: ReceiverInfo)
  * :: DeveloperApi ::
  * A listener interface for receiving information about an ongoing streaming
  * computation.
+  * <br><br>
+  *   监督有关流处理的信息
  */
 @DeveloperApi
 trait StreamingListener {

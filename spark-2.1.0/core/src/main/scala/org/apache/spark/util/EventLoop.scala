@@ -25,12 +25,15 @@ import scala.util.control.NonFatal
 import org.apache.spark.internal.Logging
 
 /**
- * An event loop to receive events from the caller and process all events in the event thread. It
- * will start an exclusive event thread to process all events.
- *
- * Note: The event queue will grow indefinitely. So subclasses should make sure `onReceive` can
- * handle events in time to avoid the potential OOM.
- */
+  * An event loop to receive events from the caller and process all events in the event thread. It
+  * will start an exclusive event thread to process all events.
+  *
+  * Note: The event queue will grow indefinitely. So subclasses should make sure `onReceive` can
+  * handle events in time to avoid the potential OOM.
+  * <br><br>
+  * 内部一个线程负责处理消息
+  *
+  */
 private[spark] abstract class EventLoop[E](name: String) extends Logging {
 
   private val eventQueue: BlockingQueue[E] = new LinkedBlockingDeque[E]()
@@ -96,40 +99,40 @@ private[spark] abstract class EventLoop[E](name: String) extends Logging {
   }
 
   /**
-   * Put the event into the event queue. The event thread will process it later.
-   */
+    * Put the event into the event queue. The event thread will process it later.
+    */
   def post(event: E): Unit = {
     eventQueue.put(event)
   }
 
   /**
-   * Return if the event thread has already been started but not yet stopped.
-   */
+    * Return if the event thread has already been started but not yet stopped.
+    */
   def isActive: Boolean = eventThread.isAlive
 
   /**
-   * Invoked when `start()` is called but before the event thread starts.
-   */
+    * Invoked when `start()` is called but before the event thread starts.
+    */
   protected def onStart(): Unit = {}
 
   /**
-   * Invoked when `stop()` is called and the event thread exits.
-   */
+    * Invoked when `stop()` is called and the event thread exits.
+    */
   protected def onStop(): Unit = {}
 
   /**
-   * Invoked in the event thread when polling events from the event queue.
-   *
-   * Note: Should avoid calling blocking actions in `onReceive`, or the event thread will be blocked
-   * and cannot process events in time. If you want to call some blocking actions, run them in
-   * another thread.
-   */
+    * Invoked in the event thread when polling events from the event queue.
+    *
+    * Note: Should avoid calling blocking actions in `onReceive`, or the event thread will be blocked
+    * and cannot process events in time. If you want to call some blocking actions, run them in
+    * another thread.
+    */
   protected def onReceive(event: E): Unit
 
   /**
-   * Invoked if `onReceive` throws any non fatal error. Any non fatal error thrown from `onError`
-   * will be ignored.
-   */
+    * Invoked if `onReceive` throws any non fatal error. Any non fatal error thrown from `onError`
+    * will be ignored.
+    */
   protected def onError(e: Throwable): Unit
 
 }

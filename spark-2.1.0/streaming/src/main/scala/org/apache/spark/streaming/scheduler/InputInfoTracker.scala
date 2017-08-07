@@ -24,17 +24,17 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.streaming.{StreamingContext, Time}
 
 /**
- * :: DeveloperApi ::
- * Track the information of input stream at specified batch time.
- *
- * @param inputStreamId the input stream id
- * @param numRecords the number of records in a batch
- * @param metadata metadata for this batch. It should contain at least one standard field named
- *                 "Description" which maps to the content that will be shown in the UI.
- */
+  * :: DeveloperApi ::
+  * Track the information of input stream at specified batch time.
+  *
+  * @param inputStreamId the input stream id
+  * @param numRecords    the number of records in a batch
+  * @param metadata      metadata for this batch. It should contain at least one standard field named
+  *                      "Description" which maps to the content that will be shown in the UI.
+  */
 @DeveloperApi
 case class StreamInputInfo(
-    inputStreamId: Int, numRecords: Long, metadata: Map[String, Any] = Map.empty) {
+                            inputStreamId: Int, numRecords: Long, metadata: Map[String, Any] = Map.empty) {
   require(numRecords >= 0, "numRecords must not be negative")
 
   def metadataDescription: Option[String] =
@@ -45,25 +45,28 @@ case class StreamInputInfo(
 object StreamInputInfo {
 
   /**
-   * The key for description in `StreamInputInfo.metadata`.
-   */
+    * The key for description in `StreamInputInfo.metadata`.
+    */
   val METADATA_KEY_DESCRIPTION: String = "Description"
 }
 
 /**
- * This class manages all the input streams as well as their input data statistics. The information
- * will be exposed through StreamingListener for monitoring.
- */
+  * This class manages all the input streams as well as their input data statistics. The information
+  * will be exposed through StreamingListener for monitoring.
+  * <br><br>
+  * InputInfoTracker负责管理所有的输入streams和其相关的统计信息，这些信息暴露给StreamingListener进行监督
+  */
 private[streaming] class InputInfoTracker(ssc: StreamingContext) extends Logging {
 
-  // Map to track all the InputInfo related to specific batch time and input stream.
-  private val batchTimeToInputInfos =
-    new mutable.HashMap[Time, mutable.HashMap[Int, StreamInputInfo]]
+  /**
+    * Map to track all the InputInfo related to specific batch time and input stream.
+    */
+  private val batchTimeToInputInfos = new mutable.HashMap[Time, mutable.HashMap[Int, StreamInputInfo]]
 
   /** Report the input information with batch time to the tracker */
   def reportInfo(batchTime: Time, inputInfo: StreamInputInfo): Unit = synchronized {
-    val inputInfos = batchTimeToInputInfos.getOrElseUpdate(batchTime,
-      new mutable.HashMap[Int, StreamInputInfo]())
+
+    val inputInfos = batchTimeToInputInfos.getOrElseUpdate(batchTime, new mutable.HashMap[Int, StreamInputInfo]())
 
     if (inputInfos.contains(inputInfo.inputStreamId)) {
       throw new IllegalStateException(s"Input stream ${inputInfo.inputStreamId} for batch" +

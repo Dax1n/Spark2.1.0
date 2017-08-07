@@ -35,10 +35,10 @@ private[scheduler] case class ClearCheckpointData(time: Time) extends JobGenerat
 
 /**
  * This class generates jobs from DStreams as well as drives checkpointing and cleaning
- * up DStream metadata.
+ * up DStream metadata.<br><br>
+  *   
  */
-private[streaming]
-class JobGenerator(jobScheduler: JobScheduler) extends Logging {
+private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Logging {
 
   private val ssc = jobScheduler.ssc
   private val conf = ssc.conf

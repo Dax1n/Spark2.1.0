@@ -46,18 +46,20 @@ private[streaming] object ReceiverState extends Enumeration {
  * with each other.
  */
 private[streaming] sealed trait ReceiverTrackerMessage
-private[streaming] case class RegisterReceiver(
-    streamId: Int,
-    typ: String,
-    host: String,
-    executorId: String,
-    receiverEndpoint: RpcEndpointRef
-  ) extends ReceiverTrackerMessage
-private[streaming] case class AddBlock(receivedBlockInfo: ReceivedBlockInfo)
-  extends ReceiverTrackerMessage
+
+/**
+  *
+  * @param streamId
+  * @param typ
+  * @param host
+  * @param executorId
+  * @param receiverEndpoint
+  */
+private[streaming] case class RegisterReceiver(streamId: Int, typ: String, host: String, executorId: String, receiverEndpoint: RpcEndpointRef) extends ReceiverTrackerMessage
+
+private[streaming] case class AddBlock(receivedBlockInfo: ReceivedBlockInfo) extends ReceiverTrackerMessage
 private[streaming] case class ReportError(streamId: Int, message: String, error: String)
-private[streaming] case class DeregisterReceiver(streamId: Int, msg: String, error: String)
-  extends ReceiverTrackerMessage
+private[streaming] case class DeregisterReceiver(streamId: Int, msg: String, error: String) extends ReceiverTrackerMessage
 
 /**
  * Messages used by the driver and ReceiverTrackerEndpoint to communicate locally.
@@ -101,9 +103,12 @@ private[streaming] case object GetAllReceiverInfo extends ReceiverTrackerLocalMe
  *
  * @param skipReceiverLaunch Do not launch the receiver. This is useful for testing.
  */
-private[streaming]
-class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false) extends Logging {
+private[streaming] class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false) extends Logging {
 
+  /**
+    * val receiverInputStreams = ssc.graph.getReceiverInputStreams()
+    * <br><br>是从StreamingContext的DStreamGraph成员获取到的receiverInputStreams，如果receiverInputStreams为空，则计算源就不是Receiver类型的
+    */
   private val receiverInputStreams = ssc.graph.getReceiverInputStreams()
   private val receiverInputStreamIds = receiverInputStreams.map { _.id }
   private val receivedBlockTracker = new ReceivedBlockTracker(
@@ -157,14 +162,15 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
       throw new SparkException("ReceiverTracker already started")
     }
 
+    //TODO 此处进行判断数据源是否是Receiver类型的，如果是的话启动Receiver，否则不启动Receiver
     if (!receiverInputStreams.isEmpty) {
-
       endpoint = ssc.env.rpcEnv.setupEndpoint("ReceiverTracker", new ReceiverTrackerEndpoint(ssc.env.rpcEnv))
       //TODO 启动Receiver
       if (!skipReceiverLaunch) launchReceivers()
       logInfo("ReceiverTracker started")
       trackerState = Started
     }
+
   }
 
   /** Stop the receiver execution thread. */

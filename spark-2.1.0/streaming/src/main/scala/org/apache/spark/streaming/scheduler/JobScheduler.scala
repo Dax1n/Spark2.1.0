@@ -34,15 +34,23 @@ import org.apache.spark.util.{EventLoop, ThreadUtils}
 
 
 private[scheduler] sealed trait JobSchedulerEvent
+
 private[scheduler] case class JobStarted(job: Job, startTime: Long) extends JobSchedulerEvent
+
 private[scheduler] case class JobCompleted(job: Job, completedTime: Long) extends JobSchedulerEvent
+
 private[scheduler] case class ErrorReported(msg: String, e: Throwable) extends JobSchedulerEvent
 
 /**
- * This class schedules jobs to be run on Spark. It uses the JobGenerator to generate
- * the jobs and runs them using a thread pool.
-  * <br><br>JobScheduler调度流作业在spark上运行，使用JobGenerator产生job并在线程池中运行
- */
+  * This class schedules jobs to be run on Spark. It uses the JobGenerator to generate
+  * the jobs and runs them using a thread pool.
+  * <br><br>JobScheduler调度流作业在spark上运行，使用JobGenerator产生job并在线程池中运行<br><br><br><br><br><br>
+  * 持有如下重点成员：<br>
+  * 1：JobGenerator
+  * 2：InputInfoTracker
+  * 3：receiverTracker
+  * 4：其他
+  */
 private[streaming]
 class JobScheduler(val ssc: StreamingContext) extends Logging {
 
@@ -50,17 +58,27 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
   // https://gist.github.com/AlainODea/1375759b8720a3f9f094
   private val jobSets: java.util.Map[Time, JobSet] = new ConcurrentHashMap[Time, JobSet]
   private val numConcurrentJobs = ssc.conf.getInt("spark.streaming.concurrentJobs", 1)
-  private val jobExecutor =
-    ThreadUtils.newDaemonFixedThreadPool(numConcurrentJobs, "streaming-job-executor")
+  private val jobExecutor = ThreadUtils.newDaemonFixedThreadPool(numConcurrentJobs, "streaming-job-executor")
+
+
+  /**
+    * jobGenerator = new JobGenerator(this)<br><br>
+    *   jobGenerator间接的持有‘JobScheduler所有成员的引用’ (例如：inputInfoTracker的引用)
+    */
   private val jobGenerator = new JobGenerator(this)
   val clock = jobGenerator.clock
 
   val listenerBus = new StreamingListenerBus(ssc.sparkContext.listenerBus)
 
-  // These two are created only when scheduler starts.
-  // eventLoop not being null means the scheduler has been started and not stopped
+  /**
+    * These two are created only when scheduler starts. eventLoop not being null means the scheduler has been started and not stopped
+    */
   var receiverTracker: ReceiverTracker = null
-  // A tracker to track all the input stream information as well as processed record number
+
+  /**
+    * A tracker to track all the input stream information as well as processed record number
+    * <br><br>重点成员，在Driver端负责DStream资源的监督
+    */
   var inputInfoTracker: InputInfoTracker = null
 
   private var executorAllocationManager: Option[ExecutorAllocationManager] = None
@@ -75,7 +93,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
 
     logDebug("Starting JobScheduler")
     eventLoop = new EventLoop[JobSchedulerEvent]("JobScheduler") {
-      override protected def onReceive(event: JobSchedulerEvent): Unit = processEvent(event)
+      override protected def onReceive(event: JobSchedulerEvent): Unit = processEvent(event) //TODO JobScheduler的重点方法，负责job的启动和异常信息处理
 
       override protected def onError(e: Throwable): Unit = reportError("Error in job scheduler", e)
     }
@@ -105,13 +123,16 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
       ssc.graph.batchDuration.milliseconds,
       clock)
     executorAllocationManager.foreach(ssc.addStreamingListener)
+
     //TODO 重点：ReceiverTracker启动(完成ReceiverSupvisor的创建一起Receiver的启动)
-    receiverTracker.start()
+    receiverTracker.start() //start方法中会判断是否为Receiver类型计算源而具体判断是否启动Receiver
+
     //TODO jobGenerator启动
     jobGenerator.start()
+
     executorAllocationManager.foreach(_.start())
     logInfo("Started JobScheduler")
-  }
+  } //TODO JobScheduler的start方法定义结束
 
   def stop(processAllReceivedData: Boolean): Unit = synchronized {
     if (eventLoop == null) return // scheduler has already been stopped
@@ -136,7 +157,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
 
     // Wait for the queued jobs to complete if indicated
     val terminated = if (processAllReceivedData) {
-      jobExecutor.awaitTermination(1, TimeUnit.HOURS)  // just a very large period of time
+      jobExecutor.awaitTermination(1, TimeUnit.HOURS) // just a very large period of time
     } else {
       jobExecutor.awaitTermination(2, TimeUnit.SECONDS)
     }
@@ -175,9 +196,18 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
     eventLoop != null
   }
 
+  /**
+    * 处理三类时间：<br><br>
+    * case JobStarted(job, startTime) => handleJobStart(job, startTime)<br><br>
+    * case JobCompleted(job, completedTime) => handleJobCompletion(job, completedTime)<br><br>
+    * case ErrorReported(m, e) => handleError(m, e)<br><br>
+    *
+    * @param event
+    */
   private def processEvent(event: JobSchedulerEvent) {
     try {
       event match {
+        //
         case JobStarted(job, startTime) => handleJobStart(job, startTime)
         case JobCompleted(job, completedTime) => handleJobCompletion(job, completedTime)
         case ErrorReported(m, e) => handleError(m, e)
@@ -231,6 +261,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
   }
 
   private class JobHandler(job: Job) extends Runnable with Logging {
+
     import JobScheduler._
 
     def run() {
@@ -274,6 +305,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
       }
     }
   }
+
 }
 
 private[streaming] object JobScheduler {

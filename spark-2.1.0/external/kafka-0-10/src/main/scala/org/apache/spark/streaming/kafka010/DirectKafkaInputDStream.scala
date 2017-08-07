@@ -95,18 +95,20 @@ private[spark] class DirectKafkaInputDStream[K, V](
     val c = consumer
     val result = new ju.HashMap[TopicPartition, String]()
     val hosts = new ju.HashMap[TopicPartition, String]()
-    val assignments = c.assignment().iterator()
+    val assignments = c.assignment().iterator()//获取到TopicPartition集合
+
     while (assignments.hasNext()) {
       val tp: TopicPartition = assignments.next()
       if (null == hosts.get(tp)) {
-        val infos = c.partitionsFor(tp.topic).iterator()
+        val infos = c.partitionsFor(tp.topic).iterator() //分区信息PartitionInfo
         while (infos.hasNext()) {
           val i = infos.next()
           hosts.put(new TopicPartition(i.topic(), i.partition()), i.leader.host())
         }
       }
       result.put(tp, hosts.get(tp))
-    }
+    } //while end
+
     result
   }
 
@@ -137,8 +139,12 @@ private[spark] class DirectKafkaInputDStream[K, V](
     }
   }
 
-  protected[streaming] def maxMessagesPerPartition(
-    offsets: Map[TopicPartition, Long]): Option[Map[TopicPartition, Long]] = {
+  /**
+    *
+    * @param offsets 当前最新消费位置
+    * @return
+    */
+  protected[streaming] def maxMessagesPerPartition(offsets: Map[TopicPartition, Long]): Option[Map[TopicPartition, Long]] = {
     val estimatedRateLimit = rateController.map(_.getLatestRate())
 
     // calculate a per-partition rate limit based on current lag
@@ -189,16 +195,17 @@ private[spark] class DirectKafkaInputDStream[K, V](
 
   /**
    * Returns the latest (highest) available offsets, taking new partitions into account.
+    * <br><br>获取到当前TopicPartition的偏移
    */
   protected def latestOffsets(): Map[TopicPartition, Long] = {
     val c = consumer
     paranoidPoll(c)
-    val parts = c.assignment().asScala
+    val parts = c.assignment().asScala // Set[TopicPartition]
 
     // make sure new partitions are reflected in currentOffsets
-    val newPartitions = parts.diff(currentOffsets.keySet)
+    val newPartitions = parts.diff(currentOffsets.keySet)//获取到所有分区，包含新加入的分区
     // position for new partitions determined by auto.offset.reset if no commit
-    currentOffsets = currentOffsets ++ newPartitions.map(tp => tp -> c.position(tp)).toMap
+    currentOffsets = currentOffsets ++ newPartitions.map(tp => tp -> c.position(tp)).toMap //consumer的position方法是获取下一条的offset
     // don't want to consume messages, so pause
     c.pause(newPartitions.asJava)
     // find latest available offsets
@@ -208,14 +215,16 @@ private[spark] class DirectKafkaInputDStream[K, V](
 
   /**
     * limits the maximum number of messages per partition
+    * <br>限制每一个分区的消息数目<br>
     * @param offsets
     * @return
     */
-  protected def clamp(offsets: Map[TopicPartition, Long]): Map[TopicPartition, Long] = {//clamp ：夹紧，夹住; 锁住; 把（砖等）堆高，堆存; 脚步很重地走;
+  protected def clamp(offsets: Map[TopicPartition, Long]): Map[TopicPartition, Long] = {//clamp：在此处应该是锁定区间的意思
 
     maxMessagesPerPartition(offsets).map { mmp =>
       mmp.map { case (tp, messages) =>
           val uo = offsets(tp)
+        //currentOffsets(tp) + messages为当前位置+获取信息的偏移
           tp -> Math.min(currentOffsets(tp) + messages, uo)
       }
     }.getOrElse(offsets)
@@ -230,11 +239,15 @@ private[spark] class DirectKafkaInputDStream[K, V](
     */
   override def compute(validTime: Time): Option[KafkaRDD[K, V]] = {
 
-    val untilOffsets = clamp(latestOffsets())
+    val untilOffsets = clamp(latestOffsets()) //TODO 重点业务，其中包含消息区间的确定和速率的控制
+    // OffsetRange包含信息有：topic，partition，起始位置，结束位置
     val offsetRanges = untilOffsets.map { case (tp, uo) =>
-      val fo = currentOffsets(tp)
+      val fo = currentOffsets(tp)// fo和uo是多数情况相等的
       OffsetRange(tp.topic, tp.partition, fo, uo)
     }
+
+
+
     //TODO KafkaRDD构造函数的第三个参数比较重要：该参数定义了Kafka分区属于当前RDD数据的offset值
     val rdd = new KafkaRDD[K, V](context.sparkContext, executorKafkaParams, offsetRanges.toArray, getPreferredHosts, true)
 
@@ -242,7 +255,7 @@ private[spark] class DirectKafkaInputDStream[K, V](
     //TODO 汇报当前记录数目和元数据信息到InputInfoTracker
     val description = offsetRanges.filter { offsetRange =>
       // Don't display empty ranges.
-      offsetRange.fromOffset != offsetRange.untilOffset
+      offsetRange.fromOffset != offsetRange.untilOffset//TODO 过滤掉区间为空的offsetRange
     }.map { offsetRange =>
       s"topic: ${offsetRange.topic}\tpartition: ${offsetRange.partition}\t" +
         s"offsets: ${offsetRange.fromOffset} to ${offsetRange.untilOffset}"
@@ -252,8 +265,8 @@ private[spark] class DirectKafkaInputDStream[K, V](
       "offsets" -> offsetRanges.toList,
       StreamInputInfo.METADATA_KEY_DESCRIPTION -> description)
     val inputInfo = StreamInputInfo(id, rdd.count, metadata)
-    ssc.scheduler.inputInfoTracker.reportInfo(validTime, inputInfo)
-
+    ssc.scheduler.inputInfoTracker.reportInfo(validTime, inputInfo) //TODO InputInfoTracker是运行在Driver端,负责计算数据的监控
+    //将当前消费过的最新偏移设置到currentOffsets中
     currentOffsets = untilOffsets
     commitAll()
     Some(rdd)

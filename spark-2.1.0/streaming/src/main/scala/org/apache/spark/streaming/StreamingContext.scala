@@ -585,7 +585,7 @@ class StreamingContext private[streaming] (
               sparkContext.clearJobGroup()
               sparkContext.setLocalProperty(SparkContext.SPARK_JOB_INTERRUPT_ON_CANCEL, "false")
               savedProperties.set(SerializationUtils.clone(sparkContext.localProperties.get()))
-              //TODO JobScheduler
+              //TODO JobScheduler启动，重点的入口
               scheduler.start()
             }
 
