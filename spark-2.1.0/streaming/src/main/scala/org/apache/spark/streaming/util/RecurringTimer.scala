@@ -20,8 +20,14 @@ package org.apache.spark.streaming.util
 import org.apache.spark.internal.Logging
 import org.apache.spark.util.{Clock, SystemClock}
 
-private[streaming]
-class RecurringTimer(clock: Clock, period: Long, callback: (Long) => Unit, name: String)
+/**
+  * 底层通过线程实现的一个定时器
+  * @param clock
+  * @param period 定时器间隔
+  * @param callback 定时执行的Task
+  * @param name 底层实现定时器的线程的名字
+  */
+private[streaming] class RecurringTimer(clock: Clock, period: Long, callback: (Long) => Unit, name: String)
   extends Logging {
 
   private val thread = new Thread("RecurringTimer - " + name) {

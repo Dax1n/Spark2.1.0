@@ -119,7 +119,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
     listenerBus.start()
     //TODO ReceiverTracker初始化
     receiverTracker = new ReceiverTracker(ssc)
-    //TODO 主要用来统计输入数据集的统计信息，用来进行UI显示和监控
+    //TODO 主要用来跟踪输入数据集，并进行UI显示和监控
     inputInfoTracker = new InputInfoTracker(ssc)
 
     val executorAllocClient: ExecutorAllocationClient = ssc.sparkContext.schedulerBackend match {

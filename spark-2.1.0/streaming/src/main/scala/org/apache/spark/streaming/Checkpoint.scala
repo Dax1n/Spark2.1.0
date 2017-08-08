@@ -31,9 +31,7 @@ import org.apache.spark.io.CompressionCodec
 import org.apache.spark.streaming.scheduler.JobGenerator
 import org.apache.spark.util.Utils
 
-private[streaming]
-class Checkpoint(ssc: StreamingContext, val checkpointTime: Time)
-  extends Logging with Serializable {
+private[streaming] class Checkpoint(ssc: StreamingContext, val checkpointTime: Time) extends Logging with Serializable {
   val master = ssc.sc.master
   val framework = ssc.sc.appName
   val jars = ssc.sc.jars
@@ -86,7 +84,7 @@ class Checkpoint(ssc: StreamingContext, val checkpointTime: Time)
     assert(checkpointTime != null, "Checkpoint.checkpointTime is null")
     logInfo(s"Checkpoint for time $checkpointTime validated")
   }
-}
+} //Checkpoint end
 
 private[streaming]
 object Checkpoint extends Logging {

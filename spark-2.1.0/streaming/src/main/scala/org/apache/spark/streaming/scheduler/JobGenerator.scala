@@ -30,6 +30,12 @@ import org.apache.spark.util.{Clock, EventLoop, ManualClock, Utils}
 private[scheduler] sealed trait JobGeneratorEvent
 private[scheduler] case class GenerateJobs(time: Time) extends JobGeneratorEvent
 private[scheduler] case class ClearMetadata(time: Time) extends JobGeneratorEvent
+
+/**
+  *
+  * @param time
+  * @param clearCheckpointDataLater
+  */
 private[scheduler] case class DoCheckpoint(time: Time, clearCheckpointDataLater: Boolean) extends JobGeneratorEvent
 private[scheduler] case class ClearCheckpointData(time: Time) extends JobGeneratorEvent
 
@@ -61,8 +67,8 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
     }
   }
 
-  private val timer = new RecurringTimer(clock, ssc.graph.batchDuration.milliseconds,
-    longTime => eventLoop.post(GenerateJobs(new Time(longTime))), "JobGenerator")
+  //TODO 定时生成Job的定时器
+  private val timer = new RecurringTimer(clock, ssc.graph.batchDuration.milliseconds, longTime => eventLoop.post(GenerateJobs(new Time(longTime))), "JobGenerator")
 
   // This is marked lazy so that this is initialized after checkpoint duration has been set
   // in the context and the generator has been started.
@@ -90,6 +96,7 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
     checkpointWriter
 
     eventLoop = new EventLoop[JobGeneratorEvent]("JobGenerator") {
+      //TODO   onReceive方法在EventLoop的线程的run方法中被调用
       override protected def onReceive(event: JobGeneratorEvent): Unit = processEvent(event)
 
       override protected def onError(e: Throwable): Unit = {
@@ -196,6 +203,7 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
   private def startFirstTime() {
     val startTime = new Time(timer.getStartTime())
     graph.start(startTime - graph.batchDuration)
+    //TODO
     timer.start(startTime.milliseconds)
     logInfo("Started JobGenerator at " + startTime)
   }
@@ -243,7 +251,9 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
     logInfo("Restarted JobGenerator at " + restartTime)
   }
 
-  /** Generate jobs and perform checkpointing for the given `time`.  */
+  /** Generate jobs and perform checkpointing for the given `time`.
+    *
+    */
   private def generateJobs(time: Time) {
     // Checkpoint all RDDs marked for checkpointing to ensure their lineages are
     // truncated periodically. Otherwise, we may run into stack overflows (SPARK-6847).
@@ -262,6 +272,7 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
         jobScheduler.reportError("Error generating jobs for time " + time, e)
         PythonDStream.stopStreamingContextIfPythonProcessIsDead(e)
     }
+    //TODO 每一次generateJobs之后便执行CheckPoint
     eventLoop.post(DoCheckpoint(time, clearCheckpointDataLater = false))
   }
 

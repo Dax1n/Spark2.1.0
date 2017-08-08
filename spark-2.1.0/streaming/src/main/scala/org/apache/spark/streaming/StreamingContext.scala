@@ -152,6 +152,9 @@ class StreamingContext private[streaming] (
 
   private[streaming] val env = sc.env
 
+  /**
+    * graph成员
+    */
   private[streaming] val graph: DStreamGraph = {
     if (isCheckpointPresent) {
       _cp.graph.setContext(this)
@@ -176,6 +179,9 @@ class StreamingContext private[streaming] (
     }
   }
 
+  /**
+    *
+    */
   private[streaming] val checkpointDuration: Duration = {
     if (isCheckpointPresent) _cp.checkpointDuration else graph.batchDuration
   }
