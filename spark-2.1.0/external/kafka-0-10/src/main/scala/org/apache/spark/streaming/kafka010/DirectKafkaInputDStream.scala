@@ -246,8 +246,6 @@ private[spark] class DirectKafkaInputDStream[K, V](
       OffsetRange(tp.topic, tp.partition, fo, uo)
     }
 
-
-
     //TODO KafkaRDD构造函数的第三个参数比较重要：该参数定义了Kafka分区属于当前RDD数据的offset值
     val rdd = new KafkaRDD[K, V](context.sparkContext, executorKafkaParams, offsetRanges.toArray, getPreferredHosts, true)
 

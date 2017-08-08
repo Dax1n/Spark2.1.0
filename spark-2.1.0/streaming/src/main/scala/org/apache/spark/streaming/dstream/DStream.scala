@@ -367,6 +367,7 @@ abstract class DStream[T: ClassTag](
           // recovery; see SPARK-4835 for more details. We need to have this call here because
           // compute() might cause Spark jobs to be launched.
           PairRDDFunctions.disableOutputSpecValidation.withValue(true) {
+            //TODO 重点方法
             compute(time)
           }
         }

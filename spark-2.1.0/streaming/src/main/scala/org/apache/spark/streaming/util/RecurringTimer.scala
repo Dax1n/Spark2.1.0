@@ -32,7 +32,7 @@ private[streaming] class RecurringTimer(clock: Clock, period: Long, callback: (L
 
   private val thread = new Thread("RecurringTimer - " + name) {
     setDaemon(true)
-    override def run() { loop }
+    override def run() { loop } //loop是一个死循环，定时触发执行
   }
 
   @volatile private var prevTime = -1L
@@ -105,6 +105,7 @@ private[streaming] class RecurringTimer(clock: Clock, period: Long, callback: (L
 
   /**
    * Repeatedly call the callback every interval.
+    *<br>一个标记为控制的死循环
    */
   private def loop() {
     try {

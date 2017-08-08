@@ -67,7 +67,7 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
     }
   }
 
-  //TODO 定时生成Job的定时器
+  //TODO 生成Job的定时器，按照间隔定期执行
   private val timer = new RecurringTimer(clock, ssc.graph.batchDuration.milliseconds, longTime => eventLoop.post(GenerateJobs(new Time(longTime))), "JobGenerator")
 
   // This is marked lazy so that this is initialized after checkpoint duration has been set
@@ -103,11 +103,13 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
         jobScheduler.reportError("Error in job generator", e)
       }
     }
+    //启动事件循环处理器
     eventLoop.start()
 
     if (ssc.isCheckpointPresent) {
       restart()
     } else {
+      //TODO 启动定时生成job的timer启动
       startFirstTime()
     }
   }
@@ -191,6 +193,7 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
   private def processEvent(event: JobGeneratorEvent) {
     logDebug("Got event " + event)
     event match {
+        //TODO 处理生成Job时间
       case GenerateJobs(time) => generateJobs(time)
       case ClearMetadata(time) => clearMetadata(time)
       case DoCheckpoint(time, clearCheckpointDataLater) =>
@@ -203,7 +206,7 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
   private def startFirstTime() {
     val startTime = new Time(timer.getStartTime())
     graph.start(startTime - graph.batchDuration)
-    //TODO
+    //TODO 启动定时生成job的定期器
     timer.start(startTime.milliseconds)
     logInfo("Started JobGenerator at " + startTime)
   }

@@ -36,8 +36,9 @@ import org.apache.spark.internal.Logging
   */
 private[spark] abstract class EventLoop[E](name: String) extends Logging {
 
+  /**eventQueue是一个事件队列*/
   private val eventQueue: BlockingQueue[E] = new LinkedBlockingDeque[E]()
-
+  /**事件循环处理器的启动或结束标记*/
   private val stopped = new AtomicBoolean(false)
 
   private val eventThread = new Thread(name) {
@@ -48,6 +49,7 @@ private[spark] abstract class EventLoop[E](name: String) extends Logging {
         while (!stopped.get) {
           val event = eventQueue.take()
           try {
+            //TODO 一旦有事件，则调用onReceive进行消息处理
             onReceive(event)
           } catch {
             case NonFatal(e) =>
@@ -112,11 +114,13 @@ private[spark] abstract class EventLoop[E](name: String) extends Logging {
 
   /**
     * Invoked when `start()` is called but before the event thread starts.
+    * 生命周期方法
     */
   protected def onStart(): Unit = {}
 
   /**
     * Invoked when `stop()` is called and the event thread exits.
+    * 生命周期方法
     */
   protected def onStop(): Unit = {}
 
@@ -126,12 +130,16 @@ private[spark] abstract class EventLoop[E](name: String) extends Logging {
     * Note: Should avoid calling blocking actions in `onReceive`, or the event thread will be blocked
     * and cannot process events in time. If you want to call some blocking actions, run them in
     * another thread.
+    * <br> 由于不同业务的处理方式不同，所以定义为抽象方法，有具体子类根据具体业务实现<br><br>
+    * 生命周期方法
     */
   protected def onReceive(event: E): Unit
 
   /**
     * Invoked if `onReceive` throws any non fatal error. Any non fatal error thrown from `onError`
     * will be ignored.
+    *
+    *  <br> 由于不同业务的处理方式不同，所以定义为抽象方法，有具体子类根据具体业务实现
     */
   protected def onError(e: Throwable): Unit
 
