@@ -68,7 +68,10 @@ abstract class ReceiverInputDStream[T: ClassTag](_ssc: StreamingContext)
   def stop() {}
 
   /**
-    * Generates RDDs with blocks received by the receiver of this stream. */
+    * Generates RDDs with blocks received by the receiver of this stream.
+    * @param validTime 当前批次间隔的时间(由JobGenerator产生)
+    * @return
+    */
   override def compute(validTime: Time): Option[RDD[T]] = {
     val blockRDD = {
 

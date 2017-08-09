@@ -91,7 +91,7 @@ abstract class DStream[T: ClassTag](
   /**
     * Method that generates an RDD for the given time
     *
-    * @param validTime
+    * @param validTime 当前批次间隔的时间
     * @return
     */
   def compute(validTime: Time): Option[RDD[T]]

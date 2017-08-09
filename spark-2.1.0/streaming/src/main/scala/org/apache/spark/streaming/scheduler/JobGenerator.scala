@@ -204,6 +204,7 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
 
   /** Starts the generator for the first time */
   private def startFirstTime() {
+    //TODO 计算RecurringTimer的启动时间
     val startTime = new Time(timer.getStartTime())
     graph.start(startTime - graph.batchDuration)
     //TODO 启动定时生成job的定期器
@@ -254,8 +255,9 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
     logInfo("Restarted JobGenerator at " + restartTime)
   }
 
-  /** Generate jobs and perform checkpointing for the given `time`.
-    *
+  /**
+    * Generate jobs and perform checkpointing for the given `time`.
+    * @param time time为当前间隔的时间，由RecurringTimer产生
     */
   private def generateJobs(time: Time) {
     // Checkpoint all RDDs marked for checkpointing to ensure their lineages are

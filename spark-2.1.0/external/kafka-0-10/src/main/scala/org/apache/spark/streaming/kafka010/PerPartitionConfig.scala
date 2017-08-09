@@ -39,8 +39,11 @@ abstract class PerPartitionConfig extends Serializable {
 /**
  * Default per-partition configuration
  */
-private class DefaultPerPartitionConfig(conf: SparkConf)
-    extends PerPartitionConfig {
+private class DefaultPerPartitionConfig(conf: SparkConf) extends PerPartitionConfig {
+
+  /**
+    * 每一个分区读取消息数目
+    */
   val maxRate = conf.getLong("spark.streaming.kafka.maxRatePerPartition", 0)
 
   def maxRatePerPartition(topicPartition: TopicPartition): Long = maxRate

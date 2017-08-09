@@ -47,10 +47,12 @@ private[spark] class SystemClock extends Clock {
     currentTime = System.currentTimeMillis()
 
     var waitTime = targetTime - currentTime
+
     if (waitTime <= 0) {
       return currentTime
     }
 
+    //主要目的是根据waitTime的大小选择一个合适的睡眠时间单元
     val pollTime = math.max(waitTime / 10.0, minPollTime).toLong
 
     while (true) {
@@ -59,9 +61,13 @@ private[spark] class SystemClock extends Clock {
       if (waitTime <= 0) {
         return currentTime
       }
+      //sleepTime为睡眠时间单元
       val sleepTime = math.min(waitTime, pollTime)
       Thread.sleep(sleepTime)
     }
     -1
   }
+
+
+
 }

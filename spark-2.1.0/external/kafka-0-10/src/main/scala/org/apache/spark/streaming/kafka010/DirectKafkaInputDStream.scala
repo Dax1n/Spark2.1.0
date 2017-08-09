@@ -17,7 +17,7 @@
 
 package org.apache.spark.streaming.kafka010
 
-import java.{ util => ju }
+import java.{util => ju}
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicReference
 
@@ -26,7 +26,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import org.apache.kafka.clients.consumer._
-import org.apache.kafka.common.{ PartitionInfo, TopicPartition }
+import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
 import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
@@ -37,29 +37,30 @@ import org.apache.spark.streaming.scheduler.{RateController, StreamInputInfo}
 import org.apache.spark.streaming.scheduler.rate.RateEstimator
 
 /**
- *  A DStream where
- * each given Kafka topic/partition corresponds to an RDD partition.
- * The spark configuration spark.streaming.kafka.maxRatePerPartition gives the maximum number
- *  of messages
- * per second that each '''partition''' will accept.
- * @param locationStrategy In most cases, pass in [[PreferConsistent]],
- *   see [[LocationStrategy]] for more details.
- * @param executorKafkaParams Kafka
- * <a href="http://kafka.apache.org/documentation.html#newconsumerconfigs">
- * configuration parameters</a>.
- *   Requires  "bootstrap.servers" to be set with Kafka broker(s),
- *   NOT zookeeper servers, specified in host1:port1,host2:port2 form.
- * @param consumerStrategy In most cases, pass in [[Subscribe]],
- *   see [[ConsumerStrategy]] for more details
- * @tparam K type of Kafka message key
- * @tparam V type of Kafka message value
- */
+  * A DStream where
+  * each given Kafka topic/partition corresponds to an RDD partition.
+  * The spark configuration spark.streaming.kafka.maxRatePerPartition gives the maximum number
+  * of messages
+  * per second that each '''partition''' will accept.
+  *
+  * @param locationStrategy    In most cases, pass in [[PreferConsistent]],
+  *                            see [[LocationStrategy]] for more details.
+  * @param executorKafkaParams Kafka
+  *                            <a href="http://kafka.apache.org/documentation.html#newconsumerconfigs">
+  *                            configuration parameters</a>.
+  *                            Requires  "bootstrap.servers" to be set with Kafka broker(s),
+  *                            NOT zookeeper servers, specified in host1:port1,host2:port2 form.
+  * @param consumerStrategy    In most cases, pass in [[Subscribe]],
+  *                            see [[ConsumerStrategy]] for more details
+  * @tparam K type of Kafka message key
+  * @tparam V type of Kafka message value
+  */
 private[spark] class DirectKafkaInputDStream[K, V](
-    _ssc: StreamingContext,
-    locationStrategy: LocationStrategy,  //TODO 消费的位置策略信息
-    consumerStrategy: ConsumerStrategy[K, V], //TODO 包含topic信息和kafka配置信息
-    ppc: PerPartitionConfig //TODO 控制Kafka分区读取速率的参数
-  ) extends InputDStream[ConsumerRecord[K, V]](_ssc) with Logging with CanCommitOffsets {
+                                                    _ssc: StreamingContext,
+                                                    locationStrategy: LocationStrategy, //TODO 消费的位置策略信息
+                                                    consumerStrategy: ConsumerStrategy[K, V], //TODO 包含topic信息和kafka配置信息
+                                                    ppc: PerPartitionConfig //TODO 控制Kafka分区读取速率的参数
+                                                  ) extends InputDStream[ConsumerRecord[K, V]](_ssc) with Logging with CanCommitOffsets {
 
   /**
     * 用户配置的kafka配置
@@ -77,6 +78,7 @@ private[spark] class DirectKafkaInputDStream[K, V](
   protected var currentOffsets = Map[TopicPartition, Long]()
 
   @transient private var kc: Consumer[K, V] = null
+
   def consumer(): Consumer[K, V] = this.synchronized {
     if (null == kc) {
       //
@@ -95,7 +97,7 @@ private[spark] class DirectKafkaInputDStream[K, V](
     val c = consumer
     val result = new ju.HashMap[TopicPartition, String]()
     val hosts = new ju.HashMap[TopicPartition, String]()
-    val assignments = c.assignment().iterator()//获取到TopicPartition集合
+    val assignments = c.assignment().iterator() //获取到TopicPartition集合
 
     while (assignments.hasNext()) {
       val tp: TopicPartition = assignments.next()
@@ -128,8 +130,8 @@ private[spark] class DirectKafkaInputDStream[K, V](
 
 
   /**
-   * Asynchronously maintains & sends new rate limits to the receiver through the receiver tracker.
-   */
+    * Asynchronously maintains & sends new rate limits to the receiver through the receiver tracker.
+    */
   override protected[streaming] val rateController: Option[RateController] = {
     if (RateController.isBackPressureEnabled(ssc.conf)) {
       Some(new DirectKafkaRateController(id,
@@ -156,11 +158,14 @@ private[spark] class DirectKafkaInputDStream[K, V](
         val totalLag = lagPerPartition.values.sum
 
         lagPerPartition.map { case (tp, lag) =>
+          //TODO 通过PerPartitionConfig的maxRatePerPartition方法获取每一个分区消费消息速率
           val maxRateLimitPerPartition = ppc.maxRatePerPartition(tp)
           val backpressureRate = Math.round(lag / totalLag.toFloat * rate)
           tp -> (if (maxRateLimitPerPartition > 0) {
-            Math.min(backpressureRate, maxRateLimitPerPartition)} else backpressureRate)
+            Math.min(backpressureRate, maxRateLimitPerPartition)
+          } else backpressureRate)
         }
+      //TODO 通过PerPartitionConfig的maxRatePerPartition方法获取每一个分区消费消息速率
       case None => offsets.map { case (tp, offset) => tp -> ppc.maxRatePerPartition(tp) }
     }
 
@@ -175,37 +180,52 @@ private[spark] class DirectKafkaInputDStream[K, V](
   }
 
   /**
-   * The concern here is that poll might consume messages despite being paused,
-   * which would throw off consumer position.  Fix position if this happens.
-   */
+    * The concern here is that poll might consume messages despite being paused,
+    * which would throw off consumer position.  Fix position if this happens.
+    * <br><br>
+    * 这个函数的实际功能就是寻找当前消费的位置offset，这个动作是对Kafka集群而言的
+    */
   private def paranoidPoll(c: Consumer[K, V]): Unit = {
-    val msgs = c.poll(0)
+    val msgs = c.poll(0) //msgs迭代器
     if (!msgs.isEmpty) {
+      //类型: msgs: ConsumerRecords[K, V]
       // position should be minimum offset per topicpartition
-      msgs.asScala.foldLeft(Map[TopicPartition, Long]()) { (acc, m) =>
-        val tp = new TopicPartition(m.topic, m.partition)
-        val off = acc.get(tp).map(o => Math.min(o, m.offset)).getOrElse(m.offset)
+      msgs.asScala.foldLeft(Map[TopicPartition, Long]()) { (acc, m) => //类型： acc: Map[TopicPartition, Long]，m: ConsumerRecord[K, V]
+        val tp = new TopicPartition(m.topic, m.partition) //对消息集合msgs中的每条消息进行一个foldLeft操作
+      //org.apache.kafka.clients.consumer.ConsumerRecord.offset是当前消息在分区中的offset
+      val off = acc.get(tp).map(o => Math.min(o, m.offset)).getOrElse(m.offset) //TODO 循环迭代获取TopicPartition的最小消息offset(最小消息offset其实就是消息的其实消费位置)
+        //TODO 容易困惑的地方，acc是一个immutable的map，但是对其+操作将会返回一个新的map
         acc + (tp -> off)
-      }.foreach { case (tp, off) =>
-          logInfo(s"poll(0) returned messages, seeking $tp to $off to compensate")
-          c.seek(tp, off)
+      } /*到此完成了寻找每一个TopicPartition的消息集合的最小offset定位*/ .foreach { case (tp, off) =>
+        logInfo(s"poll(0) returned messages, seeking $tp to $off to compensate") // （compensate ： 抵消;补偿，赔偿;报酬）
+        //TODO fetch offsets that the consumer will use on the next poll(timeout).
+        c.seek(tp, off) //指定offset位置到每一个TopicPartition的最小的offset处
       }
     }
+
   }
 
   /**
-   * Returns the latest (highest) available offsets, taking new partitions into account.
+    * Returns the latest (highest) available offsets, taking new partitions into account.
     * <br><br>获取到当前TopicPartition的偏移
-   */
+    */
   protected def latestOffsets(): Map[TopicPartition, Long] = {
     val c = consumer
+    //TODO 完成当前消费的起始offset定位
     paranoidPoll(c)
+
+    //TODO Get the set of partitions currently assigned to this consumer.
     val parts = c.assignment().asScala // Set[TopicPartition]
 
     // make sure new partitions are reflected in currentOffsets
-    val newPartitions = parts.diff(currentOffsets.keySet)//获取到所有分区，包含新加入的分区
+    //parts为最近的kafka集群的TopicPartition信息，currentOffsets为上一次消费的kafka集群的TopicPartition信息，所以相减为加入的分区
+    val newPartitions = parts.diff(currentOffsets.keySet) //获取到所有分区，包含新加入的分区，x.diff(y)操作是在x集合中去掉和y共同的
+
+    //TODO auto.offset.reset参数含义：当在kafka中没有初始的offset或者当前offset的消息不存在时候，如何进行处理。
+    //TODO earliest：重新开始消费  ,latest 最新的位置消费 ，等等其他参数参考kafka文档(https://kafka.apache.org/0102/documentation.html#newconsumerconfigs)
     // position for new partitions determined by auto.offset.reset if no commit
-    currentOffsets = currentOffsets ++ newPartitions.map(tp => tp -> c.position(tp)).toMap //consumer的position方法是获取下一条的offset
+    //TODO 所以此处对于新分区没有初始offset的话，会根据集群的auto.offset.reset配置进行相应处理
+    currentOffsets = currentOffsets ++ newPartitions.map(tp => tp -> c.position(tp)).toMap //consumer的position方法是获取下一条即将被fetch的消息的offset
     // don't want to consume messages, so pause
     c.pause(newPartitions.asJava)
     // find latest available offsets
@@ -216,16 +236,18 @@ private[spark] class DirectKafkaInputDStream[K, V](
   /**
     * limits the maximum number of messages per partition
     * <br>限制每一个分区的消息数目<br>
+    *
     * @param offsets
     * @return
     */
-  protected def clamp(offsets: Map[TopicPartition, Long]): Map[TopicPartition, Long] = {//clamp：在此处应该是锁定区间的意思
+  protected def clamp(offsets: Map[TopicPartition, Long]): Map[TopicPartition, Long] = {
+    //clamp：在此处应该是锁定区间的意思
 
     maxMessagesPerPartition(offsets).map { mmp =>
       mmp.map { case (tp, messages) =>
-          val uo = offsets(tp)
+        val uo = offsets(tp)
         //currentOffsets(tp) + messages为当前位置+获取信息的偏移
-          tp -> Math.min(currentOffsets(tp) + messages, uo)
+        tp -> Math.min(currentOffsets(tp) + messages, uo)
       }
     }.getOrElse(offsets)
   }
@@ -234,17 +256,17 @@ private[spark] class DirectKafkaInputDStream[K, V](
     *
     * Method that generates an RDD for the given time
     *
-    * @param validTime
-    * @return  Option[KafkaRDD[K, V]]
+    * @param validTime 当前批次间隔的时间
+    * @return Option[KafkaRDD[K, V]]
     */
   override def compute(validTime: Time): Option[KafkaRDD[K, V]] = {
 
     val untilOffsets = clamp(latestOffsets()) //TODO 重点业务，其中包含消息区间的确定和速率的控制
     // OffsetRange包含信息有：topic，partition，起始位置，结束位置
     val offsetRanges = untilOffsets.map { case (tp, uo) =>
-      val fo = currentOffsets(tp)// fo和uo是多数情况相等的
-      OffsetRange(tp.topic, tp.partition, fo, uo)
-    }
+        val fo = currentOffsets(tp) // fo和uo是多数情况相等的
+        OffsetRange(tp.topic, tp.partition, fo, uo)
+      }
 
     //TODO KafkaRDD构造函数的第三个参数比较重要：该参数定义了Kafka分区属于当前RDD数据的offset值
     val rdd = new KafkaRDD[K, V](context.sparkContext, executorKafkaParams, offsetRanges.toArray, getPreferredHosts, true)
@@ -253,7 +275,7 @@ private[spark] class DirectKafkaInputDStream[K, V](
     //TODO 汇报当前记录数目和元数据信息到InputInfoTracker
     val description = offsetRanges.filter { offsetRange =>
       // Don't display empty ranges.
-      offsetRange.fromOffset != offsetRange.untilOffset//TODO 过滤掉区间为空的offsetRange
+      offsetRange.fromOffset != offsetRange.untilOffset //TODO 过滤掉区间为空的offsetRange
     }.map { offsetRange =>
       s"topic: ${offsetRange.topic}\tpartition: ${offsetRange.partition}\t" +
         s"offsets: ${offsetRange.fromOffset} to ${offsetRange.untilOffset}"
@@ -295,18 +317,20 @@ private[spark] class DirectKafkaInputDStream[K, V](
   protected val commitCallback = new AtomicReference[OffsetCommitCallback]
 
   /**
-   * Queue up offset ranges for commit to Kafka at a future time.  Threadsafe.
-   * @param offsetRanges The maximum untilOffset for a given partition will be used at commit.
-   */
+    * Queue up offset ranges for commit to Kafka at a future time.  Threadsafe.
+    *
+    * @param offsetRanges The maximum untilOffset for a given partition will be used at commit.
+    */
   def commitAsync(offsetRanges: Array[OffsetRange]): Unit = {
     commitAsync(offsetRanges, null)
   }
 
   /**
-   * Queue up offset ranges for commit to Kafka at a future time.  Threadsafe.
-   * @param offsetRanges The maximum untilOffset for a given partition will be used at commit.
-   * @param callback Only the most recently provided callback will be used at commit.
-   */
+    * Queue up offset ranges for commit to Kafka at a future time.  Threadsafe.
+    *
+    * @param offsetRanges The maximum untilOffset for a given partition will be used at commit.
+    * @param callback     Only the most recently provided callback will be used at commit.
+    */
   def commitAsync(offsetRanges: Array[OffsetRange], callback: OffsetCommitCallback): Unit = {
     commitCallback.set(callback)
     commitQueue.addAll(ju.Arrays.asList(offsetRanges: _*))
@@ -318,7 +342,11 @@ private[spark] class DirectKafkaInputDStream[K, V](
     while (null != osr) {
       val tp = osr.topicPartition
       val x = m.get(tp)
-      val offset = if (null == x) { osr.untilOffset } else { Math.max(x.offset, osr.untilOffset) }
+      val offset = if (null == x) {
+        osr.untilOffset
+      } else {
+        Math.max(x.offset, osr.untilOffset)
+      }
       m.put(tp, new OffsetAndMetadata(offset))
       osr = commitQueue.poll()
     }
@@ -341,29 +369,30 @@ private[spark] class DirectKafkaInputDStream[K, V](
       }
     }
 
-    override def cleanup(time: Time): Unit = { }
+    override def cleanup(time: Time): Unit = {}
 
     override def restore(): Unit = {
       batchForTime.toSeq.sortBy(_._1)(Time.ordering).foreach { case (t, b) =>
-         logInfo(s"Restoring KafkaRDD for time $t ${b.mkString("[", ", ", "]")}")
-         generatedRDDs += t -> new KafkaRDD[K, V](
-           context.sparkContext,
-           executorKafkaParams,
-           b.map(OffsetRange(_)),
-           getPreferredHosts,
-           // during restore, it's possible same partition will be consumed from multiple
-           // threads, so dont use cache
-           false
-         )
+        logInfo(s"Restoring KafkaRDD for time $t ${b.mkString("[", ", ", "]")}")
+        generatedRDDs += t -> new KafkaRDD[K, V](
+          context.sparkContext,
+          executorKafkaParams,
+          b.map(OffsetRange(_)),
+          getPreferredHosts,
+          // during restore, it's possible same partition will be consumed from multiple
+          // threads, so dont use cache
+          false
+        )
       }
     }
   }
 
   /**
-   * A RateController to retrieve the rate from RateEstimator.
-   */
+    * A RateController to retrieve the rate from RateEstimator.
+    */
   private[streaming] class DirectKafkaRateController(id: Int, estimator: RateEstimator)
     extends RateController(id, estimator) {
     override def publish(rate: Long): Unit = ()
   }
+
 }
