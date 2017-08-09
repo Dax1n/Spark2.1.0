@@ -206,6 +206,7 @@ private[streaming] class JobGenerator(jobScheduler: JobScheduler) extends Loggin
   private def startFirstTime() {
     //TODO 计算RecurringTimer的启动时间
     val startTime = new Time(timer.getStartTime())
+    //TODO 启动DStreamGraph
     graph.start(startTime - graph.batchDuration)
     //TODO 启动定时生成job的定期器
     timer.start(startTime.milliseconds)

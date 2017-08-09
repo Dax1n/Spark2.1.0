@@ -73,7 +73,8 @@ private[spark] class DirectKafkaInputDStream[K, V](
 
   /**
     * 当前的消费偏移信息，key为topic和partition的封装，value为offset值<br><br>
-    * var currentOffsets = Map[TopicPartition, Long]()
+    * var currentOffsets = Map[TopicPartition, Long]()<br><br>
+    * currentOffsets在DirectKafkaInputDStream#start()启动时候进行初始化，如果找不到offset的话就根据offset.reset策略进行处理
     */
   protected var currentOffsets = Map[TopicPartition, Long]()
 
@@ -293,12 +294,19 @@ private[spark] class DirectKafkaInputDStream[K, V](
     Some(rdd)
   }
 
-  //Method called to start receiving data.
+  /**
+    * Method called to start receiving data.
+    * <br><br>
+    * 调用过程：org.apache.spark.streaming.scheduler.JobGenerator#startFirstTime()调用org.apache.spark.streaming.dstream.InputDStream#start()启动
+    */
+
   override def start(): Unit = {
     val c = consumer
     paranoidPoll(c)
+    //TODO 第一次启动，初始化currentOffsets
     if (currentOffsets.isEmpty) {
       currentOffsets = c.assignment().asScala.map { tp =>
+        //TODO org.apache.kafka.clients.consumer.KafkaConsumer.position中的实现逻辑是当找不到offset时候会根据offset.reset策略进行初始化，内部调用org.apache.kafka.clients.consumer.KafkaConsumer#updateFetchPositions实现
         tp -> c.position(tp)
       }.toMap
     }
