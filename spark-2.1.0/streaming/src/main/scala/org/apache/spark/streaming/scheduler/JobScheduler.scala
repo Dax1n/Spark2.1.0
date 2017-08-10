@@ -259,6 +259,7 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
       ))
       listenerBus.post(StreamingListenerBatchCompleted(jobSet.toBatchInfo))
     }
+
     job.result match {
       case Failure(e) =>
         reportError("Error running job " + job, e)

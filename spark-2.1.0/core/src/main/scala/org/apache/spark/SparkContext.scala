@@ -111,9 +111,9 @@ class SparkContext(config: SparkConf) extends Logging {
             |This stopped SparkContext was created at:
             |
            |${creationSite.longForm}
-           |
+            |
            |The currently active SparkContext was created at:
-           |
+            |
            |$activeCreationSite
          """.stripMargin)
     }
@@ -218,7 +218,7 @@ class SparkContext(config: SparkConf) extends Logging {
     */
   private var _executorMemory: Int = _
   /**
-    *_schedulerBackend is a cluster manager ，holded by taskscheduler .
+    * _schedulerBackend is a cluster manager ，holded by taskscheduler .
     */
   private var _schedulerBackend: SchedulerBackend = _
   /**
@@ -2050,9 +2050,29 @@ class SparkContext(config: SparkConf) extends Logging {
   }
 
   /**
-    * Run a job on all partitions in an RDD and return the results in an array.
+    *
+    * @param rdd  待计算的rdd
+    * @param func 在rdd上运行的函数(不是我们Spark具体的计算逻辑)
+    * @tparam T
+    * @tparam U
+    * @return 返回func在rdd运行的结果
     */
   def runJob[T, U: ClassTag](rdd: RDD[T], func: Iterator[T] => U): Array[U] = {
+
+    //  可以在Spark-shell中运行如下代码即可明白runJob方法：
+    //    val rdd = sc.parallelize(List(1, 2, 3, 4, 5))
+    //    val func = { (iterator: Iterator[Int]) => {
+    //      var sum = 0;
+    //      while (iterator.hasNext) {
+    //        sum += iterator.next()
+    //      }
+    //      sum
+    //    }
+    //    }
+    //    val jobFunc = () => sc.runJob(rdd,emptyFunc)
+    //    jobFunc() //输出 res11: Array[Int] = Array(3, 12)
+
+
     runJob(rdd, func, 0 until rdd.partitions.length)
   }
 
@@ -2100,13 +2120,14 @@ class SparkContext(config: SparkConf) extends Logging {
   }
 
   /**
-    *  Submit a job for execution and return a FutureJob holding the result.
+    * Submit a job for execution and return a FutureJob holding the result.
     * 提交一个job执行返回一个异步可获取的结果<br><br>
-    * @param rdd target RDD to run tasks on
+    *
+    * @param rdd              target RDD to run tasks on
     * @param processPartition a function to run on each partition of the RDD
-    * @param partitions set of partitions to run on; some jobs may not want to compute on all partitions of the target RDD, e.g. for operations like first()
-    * @param resultHandler callback to pass each result to
-    * @param resultFunc function to be executed when the result is ready
+    * @param partitions       set of partitions to run on; some jobs may not want to compute on all partitions of the target RDD, e.g. for operations like first()
+    * @param resultHandler    callback to pass each result to
+    * @param resultFunc       function to be executed when the result is ready
     */
   def submitJob[T, U, R](
                           rdd: RDD[T],

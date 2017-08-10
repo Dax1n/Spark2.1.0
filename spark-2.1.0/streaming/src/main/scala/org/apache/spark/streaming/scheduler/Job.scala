@@ -23,8 +23,10 @@ import org.apache.spark.streaming.Time
 import org.apache.spark.util.{CallSite, Utils}
 
 /**
- * Class representing a Spark computation. It may contain multiple Spark jobs.
- */
+  * Class representing a Spark computation. It may contain multiple Spark jobs.
+  * @param time
+  * @param func
+  */
 private[streaming]  class Job(val time: Time, func: () => _) {
   private var _id: String = _
   private var _outputOpId: Int = _

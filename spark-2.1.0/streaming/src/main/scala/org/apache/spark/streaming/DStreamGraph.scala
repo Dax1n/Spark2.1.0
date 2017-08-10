@@ -121,6 +121,7 @@ final private[streaming] class DStreamGraph extends Serializable with Logging {
   def generateJobs(time: Time): Seq[Job] = {
     logDebug("Generating jobs for time " + time)
     val jobs = this.synchronized {
+
       outputStreams.flatMap { outputStream =>
 
         //TODO 调用了DStream的generateJob方法（org.apache.spark.streaming.dstream.DStream.generateJob方法中调用getOrCompute调用compute方法触发生成DStream）
@@ -130,6 +131,7 @@ final private[streaming] class DStreamGraph extends Serializable with Logging {
         jobOption
       }
     }
+
     logDebug("Generated " + jobs.length + " jobs for time " + time)
     jobs
   }

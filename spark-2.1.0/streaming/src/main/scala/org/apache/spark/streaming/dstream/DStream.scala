@@ -456,17 +456,26 @@ abstract class DStream[T: ClassTag](
     * Generate a SparkStreaming job for the given time. This is an internal method that
     * should not be called directly. This default implementation creates a job
     * that materializes the corresponding RDD. Subclasses of DStream may override this
-    * to generate their own jobs.
+    * to generate their own jobs.<br><br><br><br>
+    *
     */
   private[streaming] def generateJob(time: Time): Option[Job] = {
     //TODO 获取到当前时间对应的RDD
     getOrCompute(time) match {
       case Some(rdd) =>
+
+
         val jobFunc = () => {
+
           val emptyFunc = { (iterator: Iterator[T]) => {} }
+
           //TODO 和Spark RDD运行一样，最终都是使用sparkContext.runJob方法运行
+          //emptyFunc是运行在RDD的一个函数，并不是我们的计算逻辑，返回的结果是emptyFunc在rdd上计算的结果
+          //Spark真正的计算逻辑包含在RDD的依赖上，例如MapRDD表示是一个map计算（具体的map逻辑在mapRDD中包含）
           context.sparkContext.runJob(rdd, emptyFunc)
         }
+
+        //TODO 类型jobFunc: () => Array[Unit]
         Some(new Job(time, jobFunc))
 
       case None => None

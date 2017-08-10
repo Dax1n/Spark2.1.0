@@ -144,10 +144,11 @@ private[spark] class DirectKafkaInputDStream[K, V](
 
   /**
     *
-    * @param offsets 当前最新消费位置
+    * @param offsets maxMessagesPerPartition方法实现了获取某个partition能消费到的message的数量
     * @return
     */
   protected[streaming] def maxMessagesPerPartition(offsets: Map[TopicPartition, Long]): Option[Map[TopicPartition, Long]] = {
+
     val estimatedRateLimit = rateController.map(_.getLatestRate())
 
     // calculate a per-partition rate limit based on current lag
@@ -189,18 +190,20 @@ private[spark] class DirectKafkaInputDStream[K, V](
   private def paranoidPoll(c: Consumer[K, V]): Unit = {
     val msgs = c.poll(0) //msgs迭代器
     if (!msgs.isEmpty) {
+      //计算msgs中以“topic和partitions”分组，求每一组消息的offset
       //类型: msgs: ConsumerRecords[K, V]
       // position should be minimum offset per topicpartition
       msgs.asScala.foldLeft(Map[TopicPartition, Long]()) { (acc, m) => //类型： acc: Map[TopicPartition, Long]，m: ConsumerRecord[K, V]
         val tp = new TopicPartition(m.topic, m.partition) //对消息集合msgs中的每条消息进行一个foldLeft操作
       //org.apache.kafka.clients.consumer.ConsumerRecord.offset是当前消息在分区中的offset
-      val off = acc.get(tp).map(o => Math.min(o, m.offset)).getOrElse(m.offset) //TODO 循环迭代获取TopicPartition的最小消息offset(最小消息offset其实就是消息的其实消费位置)
+      //TODO 循环迭代获取TopicPartition的最小消息offset(最小消息offset其实就是消息的其实消费位置)
+      val off = acc.get(tp).map(o => Math.min(o, m.offset)).getOrElse(m.offset)
         //TODO 容易困惑的地方，acc是一个immutable的map，但是对其+操作将会返回一个新的map
-        acc + (tp -> off)
+        acc + (tp -> off) //计算下一消费的其实偏移位置
       } /*到此完成了寻找每一个TopicPartition的消息集合的最小offset定位*/ .foreach { case (tp, off) =>
         logInfo(s"poll(0) returned messages, seeking $tp to $off to compensate") // （compensate ： 抵消;补偿，赔偿;报酬）
         //TODO fetch offsets that the consumer will use on the next poll(timeout).
-        c.seek(tp, off) //指定offset位置到每一个TopicPartition的最小的offset处
+        c.seek(tp, off) //移到下一次消费的其实偏移位置
       }
     }
 
@@ -208,7 +211,7 @@ private[spark] class DirectKafkaInputDStream[K, V](
 
   /**
     * Returns the latest (highest) available offsets, taking new partitions into account.
-    * <br><br>获取到当前TopicPartition的偏移
+    * <br><br>返回当前每一个分区的最新offset(最新的offset就是指最大的offset)
     */
   protected def latestOffsets(): Map[TopicPartition, Long] = {
     val c = consumer
@@ -226,28 +229,29 @@ private[spark] class DirectKafkaInputDStream[K, V](
     //TODO earliest：重新开始消费  ,latest 最新的位置消费 ，等等其他参数参考kafka文档(https://kafka.apache.org/0102/documentation.html#newconsumerconfigs)
     // position for new partitions determined by auto.offset.reset if no commit
     //TODO 所以此处对于新分区没有初始offset的话，会根据集群的auto.offset.reset配置进行相应处理
-    currentOffsets = currentOffsets ++ newPartitions.map(tp => tp -> c.position(tp)).toMap //consumer的position方法是获取下一条即将被fetch的消息的offset
+    //consumer的position方法是获取下一条即将被fetch的消息的offset
+    currentOffsets = currentOffsets ++ newPartitions.map(tp => tp -> c.position(tp)).toMap //该语句作用是将新分区添加到消费的分区集合中
     // don't want to consume messages, so pause
     c.pause(newPartitions.asJava)
     // find latest available offsets
-    c.seekToEnd(currentOffsets.keySet.asJava)
+    c.seekToEnd(currentOffsets.keySet.asJava) //移动每一个分区的offset到当前分区的end位置
     parts.map(tp => tp -> c.position(tp)).toMap
   }
 
   /**
-    * limits the maximum number of messages per partition
-    * <br>限制每一个分区的消息数目<br>
+    * limits the maximum number of messages per partition<br><br>
+    * Clamp方法是根据Spark.streaming.kafka.maxRatePerPartition和backpressure这两个参数来设置当前block可以消费到的offset的（即untilOffset）
     *
-    * @param offsets
-    * @return
+    * @param offsets 每一个TopicPartition消费的start offset
+    * @return 返回消费区区间的end offset
     */
   protected def clamp(offsets: Map[TopicPartition, Long]): Map[TopicPartition, Long] = {
     //clamp：在此处应该是锁定区间的意思
 
-    maxMessagesPerPartition(offsets).map { mmp =>
+    maxMessagesPerPartition(offsets).map { mmp => //mmp: Map[TopicPartition, Long]
       mmp.map { case (tp, messages) =>
         val uo = offsets(tp)
-        //currentOffsets(tp) + messages为当前位置+获取信息的偏移
+        //Math.min(当前消费的offset +要消费的消息量,partition最新的offset)
         tp -> Math.min(currentOffsets(tp) + messages, uo)
       }
     }.getOrElse(offsets)
@@ -263,11 +267,13 @@ private[spark] class DirectKafkaInputDStream[K, V](
   override def compute(validTime: Time): Option[KafkaRDD[K, V]] = {
 
     val untilOffsets = clamp(latestOffsets()) //TODO 重点业务，其中包含消息区间的确定和速率的控制
+
+
     // OffsetRange包含信息有：topic，partition，起始位置，结束位置
     val offsetRanges = untilOffsets.map { case (tp, uo) =>
-        val fo = currentOffsets(tp) // fo和uo是多数情况相等的
-        OffsetRange(tp.topic, tp.partition, fo, uo)
-      }
+      val fo = currentOffsets(tp)
+      OffsetRange(tp.topic, tp.partition, fo, uo) //生成每一个分区的消费区间
+    }
 
     //TODO KafkaRDD构造函数的第三个参数比较重要：该参数定义了Kafka分区属于当前RDD数据的offset值
     val rdd = new KafkaRDD[K, V](context.sparkContext, executorKafkaParams, offsetRanges.toArray, getPreferredHosts, true)
@@ -306,8 +312,9 @@ private[spark] class DirectKafkaInputDStream[K, V](
     //TODO 第一次启动，初始化currentOffsets
     if (currentOffsets.isEmpty) {
       currentOffsets = c.assignment().asScala.map { tp =>
-        //TODO org.apache.kafka.clients.consumer.KafkaConsumer.position中的实现逻辑是当找不到offset时候会根据offset.reset策略进行初始化，内部调用org.apache.kafka.clients.consumer.KafkaConsumer#updateFetchPositions实现
-        tp -> c.position(tp)
+        //TODO org.apache.kafka.clients.consumer.KafkaConsumer.position中的实现逻辑是当找不到offset时候会根据offset.reset策略进行初始化，
+        //TODO 内部调用org.apache.kafka.clients.consumer.KafkaConsumer#updateFetchPositions实现
+        tp -> c.position(tp) //Get the offset of the next record that will be fetched (if a record with that offset exists).
       }.toMap
     }
 
