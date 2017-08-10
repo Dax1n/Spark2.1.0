@@ -240,14 +240,15 @@ private[spark] class DirectKafkaInputDStream[K, V](
 
   /**
     * limits the maximum number of messages per partition<br><br>
-    * Clamp方法是根据Spark.streaming.kafka.maxRatePerPartition和backpressure这两个参数来设置当前block可以消费到的offset的（即untilOffset）
+    * Clamp方法是根据Spark.streaming.kafka.maxRatePerPartition和backpressure这两个参数来
+    * 设置当前block可以消费到的offset的（即untilOffset）
     *
     * @param offsets 每一个TopicPartition消费的start offset
     * @return 返回消费区区间的end offset
     */
   protected def clamp(offsets: Map[TopicPartition, Long]): Map[TopicPartition, Long] = {
     //clamp：在此处应该是锁定区间的意思
-
+    //TODO maxMessagesPerPartition方法实现了获取某个partition能消费到的message的数量
     maxMessagesPerPartition(offsets).map { mmp => //mmp: Map[TopicPartition, Long]
       mmp.map { case (tp, messages) =>
         val uo = offsets(tp)
