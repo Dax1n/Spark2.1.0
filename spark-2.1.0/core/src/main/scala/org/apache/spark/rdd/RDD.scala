@@ -936,7 +936,7 @@ U
    */
   def collect(): Array[T] = withScope {
     val results = sc.runJob(this, (iter: Iterator[T]) => iter.toArray)
-    Array.concat(results: _*)
+    Array.concat(results: _*)//将所有数组拼接成一个数组
   }
 
   /**

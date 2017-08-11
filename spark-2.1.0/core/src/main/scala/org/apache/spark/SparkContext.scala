@@ -2052,26 +2052,12 @@ class SparkContext(config: SparkConf) extends Logging {
   /**
     *
     * @param rdd  待计算的rdd
-    * @param func 在rdd上运行的函数(不是我们Spark具体的计算逻辑)
+    * @param func 在rdd上运行的函数(不是我们Spark具体的计算逻辑),该函数一般是Driver用来收集结果的
     * @tparam T
     * @tparam U
     * @return 返回func在rdd运行的结果
     */
   def runJob[T, U: ClassTag](rdd: RDD[T], func: Iterator[T] => U): Array[U] = {
-
-    //  可以在Spark-shell中运行如下代码即可明白runJob方法：
-    //    val rdd = sc.parallelize(List(1, 2, 3, 4, 5))
-    //    val func = { (iterator: Iterator[Int]) => {
-    //      var sum = 0;
-    //      while (iterator.hasNext) {
-    //        sum += iterator.next()
-    //      }
-    //      sum
-    //    }
-    //    }
-    //    val jobFunc = () => sc.runJob(rdd,emptyFunc)
-    //    jobFunc() //输出 res11: Array[Int] = Array(3, 12)
-
 
     runJob(rdd, func, 0 until rdd.partitions.length)
   }
