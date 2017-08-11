@@ -162,7 +162,9 @@ private[spark] class DirectKafkaInputDStream[K, V](
         lagPerPartition.map { case (tp, lag) =>
           //TODO 通过PerPartitionConfig的maxRatePerPartition方法获取每一个分区消费消息速率
           val maxRateLimitPerPartition = ppc.maxRatePerPartition(tp)
+
           val backpressureRate = Math.round(lag / totalLag.toFloat * rate)
+
           tp -> (if (maxRateLimitPerPartition > 0) {
             Math.min(backpressureRate, maxRateLimitPerPartition)
           } else backpressureRate)
