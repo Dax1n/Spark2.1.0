@@ -38,23 +38,23 @@ import org.apache.spark.sql.catalyst.expressions.{GenericInternalRow, UnsafeArra
 import org.apache.spark.sql.types._
 
 /**
- * Represents a numeric vector, whose index type is Int and value type is Double.
- *
- * @note Users should not implement this interface.
- */
+  * Represents a numeric vector, whose index type is Int and value type is Double.
+  *
+  * @note Users should not implement this interface.
+  */
 @SQLUserDefinedType(udt = classOf[VectorUDT])
 @Since("1.0.0")
 sealed trait Vector extends Serializable {
 
   /**
-   * Size of the vector.
-   */
+    * Size of the vector.
+    */
   @Since("1.0.0")
   def size: Int
 
   /**
-   * Converts the instance to a double array.
-   */
+    * Converts the instance to a double array.
+    */
   @Since("1.0.0")
   def toArray: Array[Double]
 
@@ -76,9 +76,9 @@ sealed trait Vector extends Serializable {
   }
 
   /**
-   * Returns a hash code value for the vector. The hash code is based on its size and its first 128
-   * nonzero entries, using a hash algorithm similar to `java.util.Arrays.hashCode`.
-   */
+    * Returns a hash code value for the vector. The hash code is based on its size and its first 128
+    * nonzero entries, using a hash algorithm similar to `java.util.Arrays.hashCode`.
+    */
   override def hashCode(): Int = {
     // This is a reference implementation. It calls return in foreachActive, which is slow.
     // Subclasses should override it with optimized implementation.
@@ -101,65 +101,66 @@ sealed trait Vector extends Serializable {
   }
 
   /**
-   * Converts the instance to a breeze vector.
-   */
+    * Converts the instance to a breeze vector.
+    */
   private[spark] def asBreeze: BV[Double]
 
   /**
-   * Gets the value of the ith element.
-   * @param i index
-   */
+    * Gets the value of the ith element.
+    *
+    * @param i index
+    */
   @Since("1.1.0")
   def apply(i: Int): Double = asBreeze(i)
 
   /**
-   * Makes a deep copy of this vector.
-   */
+    * Makes a deep copy of this vector.
+    */
   @Since("1.1.0")
   def copy: Vector = {
     throw new NotImplementedError(s"copy is not implemented for ${this.getClass}.")
   }
 
   /**
-   * Applies a function `f` to all the active elements of dense and sparse vector.
-   *
-   * @param f the function takes two parameters where the first parameter is the index of
-   *          the vector with type `Int`, and the second parameter is the corresponding value
-   *          with type `Double`.
-   */
+    * Applies a function `f` to all the active elements of dense and sparse vector.
+    *
+    * @param f the function takes two parameters where the first parameter is the index of
+    *          the vector with type `Int`, and the second parameter is the corresponding value
+    *          with type `Double`.
+    */
   @Since("1.6.0")
   def foreachActive(f: (Int, Double) => Unit): Unit
 
   /**
-   * Number of active entries.  An "active entry" is an element which is explicitly stored,
-   * regardless of its value.
-   *
-   * @note Inactive entries have value 0.
-   */
+    * Number of active entries.  An "active entry" is an element which is explicitly stored,
+    * regardless of its value.
+    *
+    * @note Inactive entries have value 0.
+    */
   @Since("1.4.0")
   def numActives: Int
 
   /**
-   * Number of nonzero elements. This scans all active values and count nonzeros.
-   */
+    * Number of nonzero elements. This scans all active values and count nonzeros.
+    */
   @Since("1.4.0")
   def numNonzeros: Int
 
   /**
-   * Converts this vector to a sparse vector with all explicit zeros removed.
-   */
+    * Converts this vector to a sparse vector with all explicit zeros removed.
+    */
   @Since("1.4.0")
   def toSparse: SparseVector
 
   /**
-   * Converts this vector to a dense vector.
-   */
+    * Converts this vector to a dense vector.
+    */
   @Since("1.4.0")
   def toDense: DenseVector = new DenseVector(this.toArray)
 
   /**
-   * Returns a vector in either dense or sparse format, whichever uses less storage.
-   */
+    * Returns a vector in either dense or sparse format, whichever uses less storage.
+    */
   @Since("1.4.0")
   def compressed: Vector = {
     val nnz = numNonzeros
@@ -172,32 +173,32 @@ sealed trait Vector extends Serializable {
   }
 
   /**
-   * Find the index of a maximal element.  Returns the first maximal element in case of a tie.
-   * Returns -1 if vector has length 0.
-   */
+    * Find the index of a maximal element.  Returns the first maximal element in case of a tie.
+    * Returns -1 if vector has length 0.
+    */
   @Since("1.5.0")
   def argmax: Int
 
   /**
-   * Converts the vector to a JSON string.
-   */
+    * Converts the vector to a JSON string.
+    */
   @Since("1.6.0")
   def toJson: String
 
   /**
-   * Convert this vector to the new mllib-local representation.
-   * This does NOT copy the data; it copies references.
-   */
+    * Convert this vector to the new mllib-local representation.
+    * This does NOT copy the data; it copies references.
+    */
   @Since("2.0.0")
   def asML: newlinalg.Vector
 }
 
 /**
- * :: AlphaComponent ::
- *
- * User-defined type for [[Vector]] which allows easy interaction with SQL
- * via [[org.apache.spark.sql.Dataset]].
- */
+  * :: AlphaComponent ::
+  *
+  * User-defined type for [[Vector]] which allows easy interaction with SQL
+  * via [[org.apache.spark.sql.Dataset]].
+  */
 @AlphaComponent
 class VectorUDT extends UserDefinedType[Vector] {
 
@@ -271,16 +272,16 @@ class VectorUDT extends UserDefinedType[Vector] {
 }
 
 /**
- * Factory methods for [[org.apache.spark.mllib.linalg.Vector]].
- * We don't use the name `Vector` because Scala imports
- * [[scala.collection.immutable.Vector]] by default.
- */
+  * Factory methods for [[org.apache.spark.mllib.linalg.Vector]].
+  * We don't use the name `Vector` because Scala imports
+  * [[scala.collection.immutable.Vector]] by default.
+  */
 @Since("1.0.0")
 object Vectors {
 
   /**
-   * Creates a dense vector from its values.
-   */
+    * Creates a dense vector from its values.
+    */
   @Since("1.0.0")
   @varargs
   def dense(firstValue: Double, otherValues: Double*): Vector =
@@ -288,28 +289,28 @@ object Vectors {
 
   // A dummy implicit is used to avoid signature collision with the one generated by @varargs.
   /**
-   * Creates a dense vector from a double array.
-   */
+    * Creates a dense vector from a double array.
+    */
   @Since("1.0.0")
   def dense(values: Array[Double]): Vector = new DenseVector(values)
 
   /**
-   * Creates a sparse vector providing its index array and value array.
-   *
-   * @param size vector size.
-   * @param indices index array, must be strictly increasing.
-   * @param values value array, must have the same length as indices.
-   */
+    * Creates a sparse vector providing its index array and value array.
+    *
+    * @param size    vector size.
+    * @param indices index array, must be strictly increasing.
+    * @param values  value array, must have the same length as indices.
+    */
   @Since("1.0.0")
   def sparse(size: Int, indices: Array[Int], values: Array[Double]): Vector =
     new SparseVector(size, indices, values)
 
   /**
-   * Creates a sparse vector using unordered (index, value) pairs.
-   *
-   * @param size vector size.
-   * @param elements vector elements in (index, value) pairs.
-   */
+    * Creates a sparse vector using unordered (index, value) pairs.
+    *
+    * @param size     vector size.
+    * @param elements vector elements in (index, value) pairs.
+    */
   @Since("1.0.0")
   def sparse(size: Int, elements: Seq[(Int, Double)]): Vector = {
     require(size > 0, "The size of the requested sparse vector must be greater than 0.")
@@ -327,11 +328,11 @@ object Vectors {
   }
 
   /**
-   * Creates a sparse vector using unordered (index, value) pairs in a Java friendly way.
-   *
-   * @param size vector size.
-   * @param elements vector elements in (index, value) pairs.
-   */
+    * Creates a sparse vector using unordered (index, value) pairs in a Java friendly way.
+    *
+    * @param size     vector size.
+    * @param elements vector elements in (index, value) pairs.
+    */
   @Since("1.0.0")
   def sparse(size: Int, elements: JavaIterable[(JavaInteger, JavaDouble)]): Vector = {
     sparse(size, elements.asScala.map { case (i, x) =>
@@ -340,27 +341,27 @@ object Vectors {
   }
 
   /**
-   * Creates a vector of all zeros.
-   *
-   * @param size vector size
-   * @return a zero vector
-   */
+    * Creates a vector of all zeros.
+    *
+    * @param size vector size
+    * @return a zero vector
+    */
   @Since("1.1.0")
   def zeros(size: Int): Vector = {
     new DenseVector(new Array[Double](size))
   }
 
   /**
-   * Parses a string resulted from `Vector.toString` into a [[Vector]].
-   */
+    * Parses a string resulted from `Vector.toString` into a [[Vector]].
+    */
   @Since("1.1.0")
   def parse(s: String): Vector = {
     parseNumeric(NumericParser.parse(s))
   }
 
   /**
-   * Parses the JSON representation of a vector into a [[Vector]].
-   */
+    * Parses the JSON representation of a vector into a [[Vector]].
+    */
   @Since("1.6.0")
   def fromJson(json: String): Vector = {
     implicit val formats = DefaultFormats
@@ -391,15 +392,15 @@ object Vectors {
   }
 
   /**
-   * Creates a vector instance from a breeze vector.
-   */
+    * Creates a vector instance from a breeze vector.
+    */
   private[spark] def fromBreeze(breezeVector: BV[Double]): Vector = {
     breezeVector match {
       case v: BDV[Double] =>
         if (v.offset == 0 && v.stride == 1 && v.length == v.data.length) {
           new DenseVector(v.data)
         } else {
-          new DenseVector(v.toArray)  // Can't use underlying array directly, so make a new one
+          new DenseVector(v.toArray) // Can't use underlying array directly, so make a new one
         }
       case v: BSV[Double] =>
         if (v.index.length == v.used) {
@@ -413,11 +414,12 @@ object Vectors {
   }
 
   /**
-   * Returns the p-norm of this vector.
-   * @param vector input vector.
-   * @param p norm.
-   * @return norm in L^p^ space.
-   */
+    * Returns the p-norm of this vector.
+    *
+    * @param vector input vector.
+    * @param p      norm.
+    * @return norm in L^p^ space.
+    */
   @Since("1.3.0")
   def norm(vector: Vector, p: Double): Double = {
     require(p >= 1.0, "To compute the p-norm of the vector, we require that you specify a p>=1. " +
@@ -466,11 +468,12 @@ object Vectors {
   }
 
   /**
-   * Returns the squared distance between two Vectors.
-   * @param v1 first Vector.
-   * @param v2 second Vector.
-   * @return squared distance between two Vectors.
-   */
+    * Returns the squared distance between two Vectors.
+    *
+    * @param v1 first Vector.
+    * @param v2 second Vector.
+    * @return squared distance between two Vectors.
+    */
   @Since("1.3.0")
   def sqdist(v1: Vector, v2: Vector): Double = {
     require(v1.size == v2.size, s"Vector dimensions do not match: Dim(v1)=${v1.size} and Dim(v2)" +
@@ -526,8 +529,8 @@ object Vectors {
   }
 
   /**
-   * Returns the squared distance between DenseVector and SparseVector.
-   */
+    * Returns the squared distance between DenseVector and SparseVector.
+    */
   private[mllib] def sqdist(v1: SparseVector, v2: DenseVector): Double = {
     var kv1 = 0
     var kv2 = 0
@@ -555,13 +558,13 @@ object Vectors {
   }
 
   /**
-   * Check equality between sparse/dense vectors
-   */
+    * Check equality between sparse/dense vectors
+    */
   private[mllib] def equals(
-      v1Indices: IndexedSeq[Int],
-      v1Values: Array[Double],
-      v2Indices: IndexedSeq[Int],
-      v2Values: Array[Double]): Boolean = {
+                             v1Indices: IndexedSeq[Int],
+                             v1Values: Array[Double],
+                             v2Indices: IndexedSeq[Int],
+                             v2Values: Array[Double]): Boolean = {
     val v1Size = v1Values.length
     val v2Size = v2Values.length
     var k1 = 0
@@ -585,8 +588,8 @@ object Vectors {
   private[linalg] val MAX_HASH_NNZ = 128
 
   /**
-   * Convert new linalg type to spark.mllib type.  Light copy; only copies references
-   */
+    * Convert new linalg type to spark.mllib type.  Light copy; only copies references
+    */
   @Since("2.0.0")
   def fromML(v: newlinalg.Vector): Vector = v match {
     case dv: newlinalg.DenseVector =>
@@ -597,12 +600,13 @@ object Vectors {
 }
 
 /**
- * A dense vector represented by a value array.
- */
+  * A dense vector represented by a value array.
+  * <br>稠密矩阵（底层数组表示）
+  */
 @Since("1.0.0")
 @SQLUserDefinedType(udt = classOf[VectorUDT])
-class DenseVector @Since("1.0.0") (
-    @Since("1.0.0") val values: Array[Double]) extends Vector {
+class DenseVector @Since("1.0.0")(
+                                   @Since("1.0.0") val values: Array[Double]) extends Vector {
 
   @Since("1.0.0")
   override def size: Int = values.length
@@ -724,8 +728,8 @@ object DenseVector {
   def unapply(dv: DenseVector): Option[Array[Double]] = Some(dv.values)
 
   /**
-   * Convert new linalg type to spark.mllib type.  Light copy; only copies references
-   */
+    * Convert new linalg type to spark.mllib type.  Light copy; only copies references
+    */
   @Since("2.0.0")
   def fromML(v: newlinalg.DenseVector): DenseVector = {
     new DenseVector(v.values)
@@ -733,18 +737,19 @@ object DenseVector {
 }
 
 /**
- * A sparse vector represented by an index array and a value array.
- *
- * @param size size of the vector.
- * @param indices index array, assume to be strictly increasing.
- * @param values value array, must have the same length as the index array.
- */
+  * A sparse(稀疏) vector represented by an index array and a value array.
+  * <br>稀疏矩阵，底层使用两个数组表示：index数组和value数组
+  *
+  * @param size    size of the vector.
+  * @param indices index array, assume to be strictly increasing.
+  * @param values  value array, must have the same length as the index array.
+  */
 @Since("1.0.0")
 @SQLUserDefinedType(udt = classOf[VectorUDT])
-class SparseVector @Since("1.0.0") (
-    @Since("1.0.0") override val size: Int,
-    @Since("1.0.0") val indices: Array[Int],
-    @Since("1.0.0") val values: Array[Double]) extends Vector {
+class SparseVector @Since("1.0.0")(
+                                    @Since("1.0.0") override val size: Int,
+                                    @Since("1.0.0") val indices: Array[Int],
+                                    @Since("1.0.0") val values: Array[Double]) extends Vector {
 
   require(indices.length == values.length, "Sparse vectors require that the dimension of the" +
     s" indices match the dimension of the values. You provided ${indices.length} indices and " +
@@ -889,14 +894,15 @@ class SparseVector @Since("1.0.0") (
   }
 
   /**
-   * Create a slice of this vector based on the given indices.
-   * @param selectedIndices Unsorted list of indices into the vector.
-   *                        This does NOT do bound checking.
-   * @return  New SparseVector with values in the order specified by the given indices.
-   *
-   * NOTE: The API needs to be discussed before making this public.
-   *       Also, if we have a version assuming indices are sorted, we should optimize it.
-   */
+    * Create a slice of this vector based on the given indices.
+    *
+    * @param selectedIndices Unsorted list of indices into the vector.
+    *                        This does NOT do bound checking.
+    * @return New SparseVector with values in the order specified by the given indices.
+    *
+    *         NOTE: The API needs to be discussed before making this public.
+    *         Also, if we have a version assuming indices are sorted, we should optimize it.
+    */
   private[spark] def slice(selectedIndices: Array[Int]): SparseVector = {
     var currentIdx = 0
     val (sliceInds, sliceVals) = selectedIndices.flatMap { origIdx =>
@@ -934,8 +940,8 @@ object SparseVector {
     Some((sv.size, sv.indices, sv.values))
 
   /**
-   * Convert new linalg type to spark.mllib type.  Light copy; only copies references
-   */
+    * Convert new linalg type to spark.mllib type.  Light copy; only copies references
+    */
   @Since("2.0.0")
   def fromML(v: newlinalg.SparseVector): SparseVector = {
     new SparseVector(v.size, v.indices, v.values)
@@ -943,9 +949,9 @@ object SparseVector {
 }
 
 /**
- * Implicit methods available in Scala for converting [[org.apache.spark.mllib.linalg.Vector]] to
- * [[org.apache.spark.ml.linalg.Vector]] and vice versa.
- */
+  * Implicit methods available in Scala for converting [[org.apache.spark.mllib.linalg.Vector]] to
+  * [[org.apache.spark.ml.linalg.Vector]] and vice versa.
+  */
 private[spark] object VectorImplicits {
 
   implicit def mllibVectorToMLVector(v: Vector): newlinalg.Vector = v.asML
