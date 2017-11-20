@@ -24,48 +24,48 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.shuffle._
 
 /**
- * In sort-based shuffle, incoming records are sorted according to their target partition ids, then
- * written to a single map output file. Reducers fetch contiguous regions of this file in order to
- * read their portion of the map output. In cases where the map output data is too large to fit in
- * memory, sorted subsets of the output can are spilled to disk and those on-disk files are merged
- * to produce the final output file.
- *
- * Sort-based shuffle has two different write paths for producing its map output files:
- *
- *  - Serialized sorting: used when all three of the following conditions hold:
- *    1. The shuffle dependency specifies no aggregation or output ordering.
- *    2. The shuffle serializer supports relocation of serialized values (this is currently
- *       supported by KryoSerializer and Spark SQL's custom serializers).
- *    3. The shuffle produces fewer than 16777216 output partitions.
- *  - Deserialized sorting: used to handle all other cases.
- *
- * -----------------------
- * Serialized sorting mode
- * -----------------------
- *
- * In the serialized sorting mode, incoming records are serialized as soon as they are passed to the
- * shuffle writer and are buffered in a serialized form during sorting. This write path implements
- * several optimizations:
- *
- *  - Its sort operates on serialized binary data rather than Java objects, which reduces memory
- *    consumption and GC overheads. This optimization requires the record serializer to have certain
- *    properties to allow serialized records to be re-ordered without requiring deserialization.
- *    See SPARK-4550, where this optimization was first proposed and implemented, for more details.
- *
- *  - It uses a specialized cache-efficient sorter ([[ShuffleExternalSorter]]) that sorts
- *    arrays of compressed record pointers and partition ids. By using only 8 bytes of space per
- *    record in the sorting array, this fits more of the array into cache.
- *
- *  - The spill merging procedure operates on blocks of serialized records that belong to the same
- *    partition and does not need to deserialize records during the merge.
- *
- *  - When the spill compression codec supports concatenation of compressed data, the spill merge
- *    simply concatenates the serialized and compressed spill partitions to produce the final output
- *    partition.  This allows efficient data copying methods, like NIO's `transferTo`, to be used
- *    and avoids the need to allocate decompression or copying buffers during the merge.
- *
- * For more details on these optimizations, see SPARK-7081.
- */
+  * In sort-based shuffle, incoming records are sorted according to their target partition ids, then
+  * written to a single map output file. Reducers fetch contiguous(连续的) regions of this file in order to
+  * read their portion of the map output. In cases where the map output data is too large to fit in
+  * memory, sorted subsets of the output can are spilled to disk and those on-disk files are merged
+  * to produce the final output file(有时候可能因为输出的文件太大无法存储到内存，需要先spill到磁盘，最后在合并到一个文件中).
+  *
+  * Sort-based shuffle has two different write paths for producing its map output files:
+  *
+  * - Serialized sorting: used when all three of the following conditions hold:
+  * 1. The shuffle dependency specifies no aggregation or output ordering.
+  * 2. The shuffle serializer supports relocation of serialized values (this is currently
+  * supported by KryoSerializer and Spark SQL's custom serializers).
+  * 3. The shuffle produces fewer than 16777216 output partitions.
+  * - Deserialized sorting: used to handle all other cases.
+  *
+  * -----------------------
+  * Serialized sorting mode
+  * -----------------------
+  *
+  * In the serialized sorting mode, incoming records are serialized as soon as they are passed to the
+  * shuffle writer and are buffered in a serialized form during sorting. This write path implements
+  * several optimizations:
+  *
+  * - Its sort operates on serialized binary data rather than Java objects, which reduces memory
+  * consumption and GC overheads. This optimization requires the record serializer to have certain
+  * properties to allow serialized records to be re-ordered without requiring deserialization.
+  * See SPARK-4550, where this optimization was first proposed and implemented, for more details.
+  *
+  * - It uses a specialized cache-efficient sorter ([[ShuffleExternalSorter]]) that sorts
+  * arrays of compressed record pointers and partition ids. By using only 8 bytes of space per
+  * record in the sorting array, this fits more of the array into cache.
+  *
+  * - The spill merging procedure operates on blocks of serialized records that belong to the same
+  * partition and does not need to deserialize records during the merge.
+  *
+  * - When the spill compression codec supports concatenation of compressed data, the spill merge
+  * simply concatenates the serialized and compressed spill partitions to produce the final output
+  * partition.  This allows efficient data copying methods, like NIO's `transferTo`, to be used
+  * and avoids the need to allocate decompression or copying buffers during the merge.
+  *
+  * For more details on these optimizations, see SPARK-7081.
+  */
 private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager with Logging {
 
   if (!conf.getBoolean("spark.shuffle.spill", true)) {
@@ -75,19 +75,19 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
   }
 
   /**
-   * A mapping from shuffle ids to the number of mappers producing output for those shuffles.
-   */
+    * A mapping from shuffle ids to the number of mappers producing output for those shuffles.
+    */
   private[this] val numMapsForShuffle = new ConcurrentHashMap[Int, Int]()
 
   override val shuffleBlockResolver = new IndexShuffleBlockResolver(conf)
 
   /**
-   * Register a shuffle with the manager and obtain a handle for it to pass to tasks.
-   */
+    * Register a shuffle with the manager and obtain a handle for it to pass to tasks.
+    */
   override def registerShuffle[K, V, C](
-      shuffleId: Int,
-      numMaps: Int,
-      dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
+                                         shuffleId: Int,
+                                         numMaps: Int,
+                                         dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
     if (SortShuffleWriter.shouldBypassMergeSort(SparkEnv.get.conf, dependency)) {
       // If there are fewer than spark.shuffle.sort.bypassMergeThreshold partitions and we don't
       // need map-side aggregation, then write numPartitions files directly and just concatenate
@@ -107,28 +107,28 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
   }
 
   /**
-   * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
-   * Called on executors by reduce tasks.
-   */
+    * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
+    * Called on executors by reduce tasks.
+    */
   override def getReader[K, C](
-      handle: ShuffleHandle,
-      startPartition: Int,
-      endPartition: Int,
-      context: TaskContext): ShuffleReader[K, C] = {
+                                handle: ShuffleHandle,
+                                startPartition: Int,
+                                endPartition: Int,
+                                context: TaskContext): ShuffleReader[K, C] = {
     new BlockStoreShuffleReader(
       handle.asInstanceOf[BaseShuffleHandle[K, _, C]], startPartition, endPartition, context)
   }
 
   /** Get a writer for a given partition. Called on executors by map tasks. */
   override def getWriter[K, V](
-      handle: ShuffleHandle,
-      mapId: Int,
-      context: TaskContext): ShuffleWriter[K, V] = {
+                                handle: ShuffleHandle,
+                                mapId: Int,
+                                context: TaskContext): ShuffleWriter[K, V] = {
     numMapsForShuffle.putIfAbsent(
       handle.shuffleId, handle.asInstanceOf[BaseShuffleHandle[_, _, _]].numMaps)
     val env = SparkEnv.get
     handle match {
-      case unsafeShuffleHandle: SerializedShuffleHandle[K @unchecked, V @unchecked] =>
+      case unsafeShuffleHandle: SerializedShuffleHandle[K@unchecked, V@unchecked] =>
         new UnsafeShuffleWriter(
           env.blockManager,
           shuffleBlockResolver.asInstanceOf[IndexShuffleBlockResolver],
@@ -137,7 +137,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           mapId,
           context,
           env.conf)
-      case bypassMergeSortHandle: BypassMergeSortShuffleHandle[K @unchecked, V @unchecked] =>
+      case bypassMergeSortHandle: BypassMergeSortShuffleHandle[K@unchecked, V@unchecked] =>
         new BypassMergeSortShuffleWriter(
           env.blockManager,
           shuffleBlockResolver.asInstanceOf[IndexShuffleBlockResolver],
@@ -145,7 +145,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           mapId,
           context,
           env.conf)
-      case other: BaseShuffleHandle[K @unchecked, V @unchecked, _] =>
+      case other: BaseShuffleHandle[K@unchecked, V@unchecked, _] =>
         new SortShuffleWriter(shuffleBlockResolver, other, mapId, context)
     }
   }
@@ -170,17 +170,17 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
 private[spark] object SortShuffleManager extends Logging {
 
   /**
-   * The maximum number of shuffle output partitions that SortShuffleManager supports when
-   * buffering map outputs in a serialized form. This is an extreme defensive programming measure,
-   * since it's extremely unlikely that a single shuffle produces over 16 million output partitions.
-   * */
+    * The maximum number of shuffle output partitions that SortShuffleManager supports when
+    * buffering map outputs in a serialized form. This is an extreme defensive programming measure,
+    * since it's extremely unlikely that a single shuffle produces over 16 million output partitions.
+    **/
   val MAX_SHUFFLE_OUTPUT_PARTITIONS_FOR_SERIALIZED_MODE =
     PackedRecordPointer.MAXIMUM_PARTITION_ID + 1
 
   /**
-   * Helper method for determining whether a shuffle should use an optimized serialized shuffle
-   * path or whether it should fall back to the original path that operates on deserialized objects.
-   */
+    * Helper method for determining whether a shuffle should use an optimized serialized shuffle
+    * path or whether it should fall back to the original path that operates on deserialized objects.
+    */
   def canUseSerializedShuffle(dependency: ShuffleDependency[_, _, _]): Boolean = {
     val shufId = dependency.shuffleId
     val numPartitions = dependency.partitioner.numPartitions
@@ -204,23 +204,23 @@ private[spark] object SortShuffleManager extends Logging {
 }
 
 /**
- * Subclass of [[BaseShuffleHandle]], used to identify when we've chosen to use the
- * serialized shuffle.
- */
+  * Subclass of [[BaseShuffleHandle]], used to identify when we've chosen to use the
+  * serialized shuffle.
+  */
 private[spark] class SerializedShuffleHandle[K, V](
-  shuffleId: Int,
-  numMaps: Int,
-  dependency: ShuffleDependency[K, V, V])
+                                                    shuffleId: Int,
+                                                    numMaps: Int,
+                                                    dependency: ShuffleDependency[K, V, V])
   extends BaseShuffleHandle(shuffleId, numMaps, dependency) {
 }
 
 /**
- * Subclass of [[BaseShuffleHandle]], used to identify when we've chosen to use the
- * bypass merge sort shuffle path.
- */
+  * Subclass of [[BaseShuffleHandle]], used to identify when we've chosen to use the
+  * bypass merge sort shuffle path.
+  */
 private[spark] class BypassMergeSortShuffleHandle[K, V](
-  shuffleId: Int,
-  numMaps: Int,
-  dependency: ShuffleDependency[K, V, V])
+                                                         shuffleId: Int,
+                                                         numMaps: Int,
+                                                         dependency: ShuffleDependency[K, V, V])
   extends BaseShuffleHandle(shuffleId, numMaps, dependency) {
 }

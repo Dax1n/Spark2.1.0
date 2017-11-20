@@ -49,6 +49,7 @@ class ShuffledRDD[K: ClassTag, V: ClassTag, C: ClassTag](
 
   private var userSpecifiedSerializer: Option[Serializer] = None
 
+  //Key的排序器
   private var keyOrdering: Option[Ordering[K]] = None
 
   private var aggregator: Option[Aggregator[K, V, C]] = None
